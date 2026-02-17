@@ -150,6 +150,10 @@ int preprocess_file(FILE *inp, const char *path, Text *text) {
 // Preprocesses pseudo.asm, followed by the input file
 int preprocess(FILE *inp, const char *path, Text *text) {
     FILE *pseudo = fopen("pseudo.asm", "r");
+    if (pseudo == NULL) {
+        general_error(FILE_IO, __FILE__, "pseudo.asm");
+        return 0;
+    }
     if (preprocess_file(pseudo, "pseudo.asm", text) == 0) return 0;
 
     if (preprocess_file(inp, path, text) == 0) return 0;
