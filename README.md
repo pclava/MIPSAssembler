@@ -33,37 +33,23 @@ The particular details of the MIPS instruction set were sourced from _MIPS Assem
 Some example assembly files and their outputs can be found in `examples/`.
 
 ## Usage
-The `build` script takes any number of files as input and assembles and links them.
-Unless an output path is specified, the program outputs the resulting executable as `a.out` in its current directory.
+`$ mips_assembler <options> <source files>`
 
-`build` supports the following options:
-- `-o [path]`
-Writes the executable in `path`, instead of `a.out`. Incompatible with the `-c` option.
-- `-c`
-Stops the assembler before linking. Only outputs object files, with the same names as the input files.
-- `-e.` and `-e [symbol]`   
-By default, when linking object files, the assembler also links `_start.o`, which calls the `main` function. An error will be raised if `main` does not exist.
-To prevent the assembler from linking `_start.o`, the `-e [symbol]` flag sets the program entry to `symbol`, and the `-e.` flag sets the program entry to the first instruction in the text segment (0x00400000).
+Note the files are linked **in the order they are listed**.
 
-### Examples
-- `$ ./build examples/helloworld.asm`
-assembles `helloworld.asm`, links with `_start.o`, and writes the result to `a.out`.
+The options include:
+- `-o <file>` : writes the executable to the given file (if not provided, outputs to a.out). ignored if -c flag is provided
+- `-c` : stops after assembler, outputs unlinked object files for each source
+- `-e.` : begin execution at the first instruction
+- `-e <symbol>` : begin execution at the given global symbol (if not provided, linker links __start and begins execution there)
 
+For example, to build an executable `foo.out` from the source files `bar.asm` and `baz.asm`, one could run:
 
-- `$ ./build -e. examples/helloworld.asm`
-only assembles and links `helloworld.asm`, with the program entry set to 0x00400000.
-
-
-- `$ ./build -c _start.asm`
-assembles `_start.asm` into `_start.o`.
-
-
-- `$ ./build -o fibonacci.out examples/fibonacci/functs.asm examples/fibonacci/fibonacci.asm`
-assembles and links `functs.asm`, `fibonacci.asm`, and `_start.o`, writing the result to `fibonacci.out`.
+`mips_assembler -o foo.out bar.asm baz.asm`
 
 ## Support
-The assembler does not support the entire MIPS instruction set. It does not support floating-point instructions. See `src/instructions.c` for the full list.
-  
+The assembler does not support the entire MIPS instruction set. It namely does not support floating-point instructions. Consult `src/instructions.c` for the full list.
+
 ---
 Every line of code in this repository was written by a human.
 
