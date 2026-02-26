@@ -259,8 +259,9 @@ int read_data(const Assembler *assembler, const Line *line) {
 
         // Token is a directive; update CURRENT_DIRECTIVE and sets readDirective to 1.
         if (!readDirective) { // Catches the first token not ending in ':'
-            char directive[7];
-            strncpy(directive, token+1, strlen(token)); // copy just the name
+            char directive[8];
+            memset(directive, '\0', sizeof(directive));
+            strncpy(directive, token, strlen(token)); // copy just the name
             if (read_directive(directive, &CURRENT_DIRECTIVE) == 0) {
                 free(argument);
                 return 0;
@@ -319,13 +320,15 @@ int read_data(const Assembler *assembler, const Line *line) {
             }
             else {
                 memset(argument, '\0', argument_size);
+                int string_length = 0;
 
                 // Argument is a string; note I keep the first quote to differentiate strings from other data (namely labels)
                 if (token[0] == '"') {
-                    argument = read_string(argument, &argument_size, token);
-                    if (argument == NULL) {
+                    const int res = read_string(argument, &argument_size, token);
+                    if (res == -1) {
                         return 0;
                     }
+                    string_length = res;
                 }
 
                 // Argument is not a string
@@ -346,10 +349,19 @@ int read_data(const Assembler *assembler, const Line *line) {
                 // Create data object
                 Data data;
                 data.line = line;
+                // save the size before processing. this allows the user to put null terminators in the middle of the string
+                // if they wanted to do that for some reason
+                if (CURRENT_DIRECTIVE == STRING) {
+                    data.size = string_length;
+                }
+                else if (CURRENT_DIRECTIVE == STRING_NT) {
+                    data.size = string_length+1;
+                }
                 if (process_data(&data, CURRENT_DIRECTIVE, argument) == 0) {
                     free(argument);
                     return 0;
                 }
+
 
                 // Add any necessary padding
                 if (data_pad(data, assembler->data_list) == 0) {
@@ -679,6 +691,7 @@ int assemble(Text *preprocessed, const char *output) {
         }
     }
 
+    dl_debug(assembler.data_list);
     // st_debug(assembler.symbol_table);
     // il_debug(assembler.instruction_list);
 

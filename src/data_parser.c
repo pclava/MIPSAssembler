@@ -90,26 +90,28 @@ int byte(Data * data, const char * str) {
 // Note that strings have an initial " to differentiate from other arguments
 // The final " will have been stripped during parsing
 int string(Data * data, const char * str) {
+    // assumes caller has filled in the size
     if (str[0] != '\"') {
         raise_error(ARG_INV, str, __FILE__);
         return 0;
     }
     data->type = STRING;
     data->isSymbol = 0;
-    data->value.string = strdup(str+1);
-    data->size = (uint32_t) strlen(str) - 1; // Don't count null terminator or initial quote
+    data->value.string = malloc(data->size);
+    memcpy(data->value.string, str+1, data->size);
     return 1;
 }
 
 int string_nt(Data * data, const char *str) {
+    // assumes caller has filled in the size
     if (str[0] != '\"') {
         raise_error(ARG_INV, str, __FILE__);
         return 0;
     }
     data->type = STRING_NT;
     data->isSymbol = 0;
-    data->value.string = strdup(str+1);
-    data->size = (uint32_t) strlen(str); // Don't count initial quote, do count null terminator
+    data->value.string = malloc(data->size);
+    memcpy(data->value.string, str+1, data->size);
     return 1;
 }
 
@@ -199,6 +201,11 @@ void data_debug(const Data data) {
 
 // Updates the DataType variable at the given pointer based on the input string
 int read_directive(const char *directive, enum DataType *type) {
+    if (directive[0] != '.') {
+        raise_error(ARG_INV, directive, __FILE__);
+        return 0;
+    }
+    directive++;
     if (strcmp(directive, "align") == 0) {
         *type = ALIGN;
     } else if (strcmp(directive, "ascii") == 0) {
