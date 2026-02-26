@@ -1,7 +1,3 @@
-//
-// Created by Paul Clavaud on 21/12/25.
-//
-
 #include "reloc_table.h"
 #include <stdlib.h>
 #include <string.h>

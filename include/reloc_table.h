@@ -1,7 +1,3 @@
-//
-// Created by Paul Clavaud on 21/12/25.
-//
-
 #ifndef MIPS_ASSEMBLER_RELOC_TABLE_H
 #define MIPS_ASSEMBLER_RELOC_TABLE_H
 #include <stdint.h>

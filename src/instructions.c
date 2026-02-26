@@ -1,7 +1,3 @@
-//
-// Created by Paul Clavaud on 22/11/25.
-//
-
 #include "instructions.h"
 #include "utils.h"
 

@@ -47,7 +47,7 @@ int byte(Data *, const char *);
 int string(Data *, const char *);
 int string_nt(Data *, const char *);
 
-int (*PROCESS_DATA[5])(Data *, const char *);
+extern int (*PROCESS_DATA[5])(Data *, const char *);
 
 int process_data(Data *data, enum DataType data_type, const char *str);
 
