@@ -50,7 +50,7 @@ Immediate parse_imm(const char * str) {
     }
 
     // NUMBER
-    if (isnumber(str[0]) || str[0] == '-') {
+    if (isdigit(str[0]) || str[0] == '-') {
         imm.type = NUM;
         int base = 10; // assume 10
         if (str[0] == '0') {
@@ -120,7 +120,6 @@ int write_half(FILE *file, const uint16_t half) {
 
 int write_string(FILE *file, const char *str, const uint32_t len) {
     for (size_t i = 0; i < len; i++) {
-        char c = str[i];
         if (write_byte(file, str[i]) == 0) {
             return 0;
         }

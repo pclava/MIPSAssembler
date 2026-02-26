@@ -57,7 +57,7 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
                 raise_error(SYMBOL_INV, token, __FILE__);
                 return 0;
             }
-            if (isnumber(token[0])) {
+            if (isdigit(token[0])) {
                 raise_error(SYMBOL_INV, token, __FILE__);
                 return 0;
             }
@@ -236,7 +236,7 @@ int read_data(const Assembler *assembler, const Line *line) {
                 free(argument);
                 return 0;
             }
-            if (isnumber(token[0])) {
+            if (isdigit(token[0])) {
                 raise_error(SYMBOL_INV, token, __FILE__);
                 free(argument);
                 return 0;
