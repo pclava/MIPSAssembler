@@ -13,13 +13,6 @@ as well as converting the intermediate representation Instruction structures to 
 #define INSTRUCTION_COUNT 40
 #define INSTRUCTION_TABLE_SIZE 256 // SHOULD BE DECENTLY LARGER THAN INSTRUCTION COUNT
 
-/* NOT SUPPORTED:
- * lhu
- * ll
- * all floating point instructions
- * mfc0
- * sc
- */
 // ADD NEW INSTRUCTIONS HERE
 static const InstrDesc instr_table[INSTRUCTION_COUNT] = {
     // MNEMONIC, OPCODE, FUNCT, FORMAT, REGISTER ORDER
