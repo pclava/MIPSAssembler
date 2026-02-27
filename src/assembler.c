@@ -64,7 +64,7 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
 
             // Copy over symbol
             for (size_t i = 0; i < len-1; i++) {
-                if ( !( isalnum(token[i]) || token[i] == '_' || token[i] == '$' || token[i] == '.' ) ) {
+                if ( !is_symbol(token[i]) ) {
                     raise_error(SYMBOL_INV, token, __FILE__);
                     return 0;
                 }
@@ -165,12 +165,12 @@ int process_instruction(const Instruction instruction, InstructionList *instruct
 
     // Check special cases: `la` (load address) and `li` (load immediate)
     // necessary because assembler currently doesn't support %hi and %lo
-    if (strcmp(instruction.mnemonic, "la") == 0) {
-        if (la(instruction, instruction_list) == -1) {
-            return 0;
-        }
-        return 1;
-    }
+    // if (strcmp(instruction.mnemonic, "la") == 0) {
+    //     if (la(instruction, instruction_list) == -1) {
+    //         return 0;
+    //     }
+    //     return 1;
+    // }
     if (strcmp(instruction.mnemonic, "li") == 0) {
         if (li(instruction, instruction_list) == -1) {
             return 0;
@@ -243,7 +243,7 @@ int read_data(const Assembler *assembler, const Line *line) {
             }
 
             for (size_t i = 0; i < strlen(token)-1; i++) {
-                if ( !( isalnum(token[i]) || token[i] == '_' || token[i] == '$' || token[i] == '.' ) ) {
+                if ( !is_symbol(token[i]) ) {
                     raise_error(SYMBOL_INV, token, __FILE__);
                     free(argument);
                     return 0;
@@ -681,6 +681,7 @@ int assemble(Text *preprocessed, const char *output) {
 
     // Check for undefined local symbols and make global
     // This behavior essentially automatically imports any undefined symbol
+    // in the hopes that the linker will find them
     for (int i = 0; i < SYMBOL_TABLE_SIZE; i++) {
         SymbolBucket *cur = assembler.symbol_table->buckets[i];
         while (cur != NULL) {
@@ -691,7 +692,7 @@ int assemble(Text *preprocessed, const char *output) {
         }
     }
 
-    dl_debug(assembler.data_list);
+    // dl_debug(assembler.data_list);
     // st_debug(assembler.symbol_table);
     // il_debug(assembler.instruction_list);
 

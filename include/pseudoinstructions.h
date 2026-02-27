@@ -40,6 +40,6 @@ Line *define_macro(Macro *macro, const Line *line);
 int insert_macro(Text *text_list, const MacroTable *table, const char *name, Line *line);
 
 int li(Instruction, InstructionList*);
-int la(Instruction, InstructionList*);
+// int la(Instruction, InstructionList*);
 
 #endif //MIPS_ASSEMBLER_PSEUDOINSTRUCTIONS_H

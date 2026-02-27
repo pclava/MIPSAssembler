@@ -19,7 +19,7 @@ typedef struct {
     int funct;
     enum InstructionFormat format;
 
-    // What registers the input registers correspond to (rs=0,rt=1,rd=2,none=-1)
+    // What registers the given order of registers correspond to (rs=0,rt=1,rd=2,none=-1)
     // E.g., {1,0,-1} means "rt, rs"
     int register_order[3];
 

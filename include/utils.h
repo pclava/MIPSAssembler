@@ -129,6 +129,7 @@ typedef struct {
         int32_t intValue;
         char symbol[SYMBOL_SIZE];
     };
+    unsigned char rgstr; // used by REG_OFFSET type
     unsigned char modifier; // 0 = none, 1 = hi, 2 = lo, 254 = macro argument, 255 = failure to parse
 } Immediate;
 
@@ -145,8 +146,8 @@ int read_string(char *dst, size_t *dst_size, char *token);
 
 unsigned char get_register(const char *token);
 
-int read_base_address(const char *str, Immediate *imm);
-
 void debug_binary(const char *name);
+
+int is_symbol(char c);
 
 #endif //MIPS_ASSEMBLER_UTILS_H

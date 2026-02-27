@@ -113,7 +113,7 @@ Line * text_insert(Text *text, Line line, Line *before) {
     before->next = ptr;
     ptr->next = old;
     ptr->prev = before;
-    old->prev = ptr;
+    if (old != NULL) old->prev = ptr;
     text->len++;
 
     return ptr;

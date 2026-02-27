@@ -256,6 +256,11 @@ uint32_t convert_itype(const Instruction instruction, SymbolTable *symbol_table,
             return -1;
         }
 
+        if (instruction.imm.modifier != 0) {
+            raise_error(ARGS_INV, NULL, __FILE__);
+            return -1;
+        }
+
         Symbol *s = st_get_symbol_safe(symbol_table, instruction.imm.symbol);
         if (s == NULL) return -1;
         RelocationEntry reloc;
@@ -266,7 +271,7 @@ uint32_t convert_itype(const Instruction instruction, SymbolTable *symbol_table,
     }
     else if (opcode >= 8 && opcode <= 15) { // Traditional operation
         // Get numerical immediate
-        if (instruction.imm.type == NONE) {
+        if (instruction.imm.type != SYMBOL && instruction.imm.type != NUM) {
             raise_error(ARGS_INV, NULL, __FILE__);
             return -1;
         }
@@ -290,7 +295,8 @@ uint32_t convert_itype(const Instruction instruction, SymbolTable *symbol_table,
                     return -1;
             }
             rt_add(reloc_table, reloc);
-        } else {
+        }
+        else {
             imm = instruction.imm.intValue;
         }
 
@@ -298,7 +304,7 @@ uint32_t convert_itype(const Instruction instruction, SymbolTable *symbol_table,
         This allows any immediate value that fits within 16 bits. That is, -32768 to 65535. Different
         instructions have different sign conventions, and this assembler does not check the convention for each
         instruction. This means, for example, the user could input a very small negative number that would get
-        interpreted as a very large positive number by the emulator.
+        interpreted as a very large positive number by the processor.
         */
 
         // Make sure immediate fits in 16-bits; checks if the upper 17-bits are all 1 or if the upper 16 are all 0
@@ -322,27 +328,41 @@ uint32_t convert_itype(const Instruction instruction, SymbolTable *symbol_table,
             return -1;
         }
 
-        Immediate i;
-        const int r = read_base_address(instruction.imm.symbol, &i);
-        if (r == -1) {
-            raise_error(ARG_INV, instruction.imm.symbol, __FILE__);
-            return -1;
+        regs[0] = instruction.imm.rgstr;
+        switch (instruction.imm.modifier) {
+            case 0:
+                // numerical value
+                if (instruction.imm.intValue > INT16_MAX || instruction.imm.intValue < INT16_MIN) {
+                    raise_error(ARGS_INV, NULL, __FILE__);
+                    return -1;
+                }
+                imm = instruction.imm.intValue & 0x0000FFFF;
+                break;
+            case 1: // hi symbol
+            case 2: // lo symbol
+                imm = 0;
+                RelocationEntry reloc;
+                Symbol *s = st_get_symbol_safe(symbol_table, instruction.imm.symbol);
+                if (s == NULL) return -1;
+                if (instruction.imm.modifier == 1) {if (re_init(&reloc, current_offset, TEXT, R_HI16, s->name) == 0) return -1;}
+                else if (instruction.imm.modifier == 2) {if (re_init(&reloc, current_offset, TEXT, R_LO16, s->name) == 0) return -1;}
+                else {
+                    raise_error(ARG_INV, instruction.imm.symbol, __FILE__);
+                    return -1;
+                }
+                rt_add(reloc_table, reloc);
+                break;
+            default:
+                raise_error(ARGS_INV, NULL, __FILE__);
+                return -1;
         }
-        regs[0] = r;
-        if (i.intValue > INT16_MAX || i.intValue < INT16_MIN) {
-            raise_error(ARGS_INV, NULL, __FILE__);
-            return -1;
-        }
-        imm = i.intValue & 0x0000FFFF;
     }
-
 
     // Shift each field into position
     opcode  <<= 26;
     regs[0] <<= 21;
     regs[1] <<= 16;
     return opcode | regs[0] | regs[1] | imm;
-
 }
 
 uint32_t convert_jtype(const Instruction instruction, const SymbolTable *symbol_table, RelocationTable *reloc_table, const InstrDesc *desc, const uint32_t current_offset) {

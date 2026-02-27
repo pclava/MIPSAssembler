@@ -136,6 +136,12 @@ Line *define_macro(Macro *macro, const Line *line) {
             return NULL;
         }
 
+        // raise error if using hi and lo operators as argument names
+        if (strcmp(token, "%hi") == 0 || strcmp(token, "%lo") == 0) {
+            raise_error(ARG_INV, token, __FILE__);
+            error_context("Cannot use 'hi' or 'lo' as macro argument");
+            return NULL;
+        }
         strcpy(macro->args[argc++], token);
         for (size_t i = 1; i < strlen(macro->args[argc-1]); i++) {
             if (!isalnum(macro->args[argc-1][i])) {
@@ -238,13 +244,25 @@ int insert_macro(Text *text_list, const MacroTable *table, const char *name, Lin
                 memset(argbuf, '\0', sizeof(argbuf));
                 argbuf[0] = '%';
                 int j = 1;
-                char end_char = ' ';
-                while ((c = new_line->text[index++]) != ' ') {
-                    if (c == '\0') {
-                        end_char = '\0';
-                        break;
-                    }
+                while (is_symbol(c = new_line->text[index++])) {
                     argbuf[j++] = c;
+                }
+                const char end_char = c;
+
+                // skip the hi and lo operators
+                if (strcmp(argbuf, "%lo") == 0) {
+                    line_add_char(&to_insert, '%');
+                    line_add_char(&to_insert, 'l');
+                    line_add_char(&to_insert, 'o');
+                    line_add_char(&to_insert, end_char);
+                    continue;
+                }
+                if (strcmp(argbuf, "%hi") == 0) {
+                    line_add_char(&to_insert, '%');
+                    line_add_char(&to_insert, 'h');
+                    line_add_char(&to_insert, 'i');
+                    line_add_char(&to_insert, end_char);
+                    continue;
                 }
 
                 // Find index in macro->args
@@ -270,6 +288,7 @@ int insert_macro(Text *text_list, const MacroTable *table, const char *name, Lin
             // Otherwise insert normally
             else line_add_char(&to_insert, c);
         }
+        line_add_char(&to_insert, '\0'); // to be safe
 
         // Insert into text
         before = text_insert(text_list, to_insert, before);
@@ -338,52 +357,52 @@ int li(const Instruction instruction, InstructionList* instructions) {
     return 2;
 }
 
-int la(const Instruction instruction, InstructionList* instructions) {
-    // la $R LABEL
-    // convert to SYMBOLIC IMMEDIATE
-
-    const unsigned char r1 = instruction.registers[0];
-    const Immediate imm = instruction.imm;
-    if (instruction.registers[1] != 255 || instruction.registers[2] != 255 || imm.type != SYMBOL) {
-        raise_error(ARGS_INV, NULL, __FILE__);
-        return 0;
-    }
-
-    // lui $at %hi(label)
-    Instruction i1;
-    memset(i1.mnemonic, '\0', sizeof(i1.mnemonic));
-    strcpy(i1.mnemonic, "lui");
-    i1.registers[0] = 1;
-    i1.registers[1] = 255;
-    i1.registers[2] = 255;
-    i1.line = instruction.line;
-
-    // Take the low bits of the immediate
-    Immediate hiImm;
-    hiImm.type = SYMBOL;
-    strcpy(hiImm.symbol, instruction.imm.symbol);
-    hiImm.modifier = 1;
-    i1.imm = hiImm;
-
-    // ori $R $at %lo(label)
-    Instruction i2;
-    memset(i2.mnemonic, '\0', sizeof(i2.mnemonic));
-    strcpy(i2.mnemonic, "ori");
-    i2.registers[0] = r1;
-    i2.registers[1] = 1;
-    i2.registers[2] = 255;
-    i2.line = instruction.line;
-
-    // Take the lo bits of the immediate
-    Immediate loImm;
-    loImm.type = SYMBOL;
-    strcpy(loImm.symbol, instruction.imm.symbol);
-    loImm.modifier = 2;
-
-    i2.imm = loImm;
-
-    if (add_instruction(instructions, i1) == 0 || add_instruction(instructions, i2) == 0) {
-        return 0;
-    }
-    return 2;
-}
+// int la(const Instruction instruction, InstructionList* instructions) {
+//     // la $R LABEL
+//     // convert to SYMBOLIC IMMEDIATE
+//
+//     const unsigned char r1 = instruction.registers[0];
+//     const Immediate imm = instruction.imm;
+//     if (instruction.registers[1] != 255 || instruction.registers[2] != 255 || imm.type != SYMBOL) {
+//         raise_error(ARGS_INV, NULL, __FILE__);
+//         return 0;
+//     }
+//
+//     // lui $at %hi(label)
+//     Instruction i1;
+//     memset(i1.mnemonic, '\0', sizeof(i1.mnemonic));
+//     strcpy(i1.mnemonic, "lui");
+//     i1.registers[0] = 1;
+//     i1.registers[1] = 255;
+//     i1.registers[2] = 255;
+//     i1.line = instruction.line;
+//
+//     // Take the low bits of the immediate
+//     Immediate hiImm;
+//     hiImm.type = SYMBOL;
+//     strcpy(hiImm.symbol, instruction.imm.symbol);
+//     hiImm.modifier = 1;
+//     i1.imm = hiImm;
+//
+//     // ori $R $at %lo(label)
+//     Instruction i2;
+//     memset(i2.mnemonic, '\0', sizeof(i2.mnemonic));
+//     strcpy(i2.mnemonic, "ori");
+//     i2.registers[0] = r1;
+//     i2.registers[1] = 1;
+//     i2.registers[2] = 255;
+//     i2.line = instruction.line;
+//
+//     // Take the lo bits of the immediate
+//     Immediate loImm;
+//     loImm.type = SYMBOL;
+//     strcpy(loImm.symbol, instruction.imm.symbol);
+//     loImm.modifier = 2;
+//
+//     i2.imm = loImm;
+//
+//     if (add_instruction(instructions, i1) == 0 || add_instruction(instructions, i2) == 0) {
+//         return 0;
+//     }
+//     return 2;
+// }

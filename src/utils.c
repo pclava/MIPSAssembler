@@ -14,43 +14,103 @@ const char *REGISTERS[REGISTER_COUNT] = {
     "$sp", "$fp", "$ra"
 };
 
+// reads an immediate of the form %OPERATOR(SYMBOL)
+// where OPERATOR can be hi or lo
+// fills given Imm pointer and returns pointer to end of expression
+const char * read_operator(Immediate * imm, const char *str) {
+    imm->modifier = 0;
+    imm->type = SYMBOL;
+
+    char operator[32];
+    memset(operator, 0, sizeof(operator));
+    // Copy until parenthesis or size exceeded
+    int i = 0;
+    int j = 0;
+    while (i < 31 && str[j] != '(' && str[j] != '\0') {
+        operator[i++] = str[j++];
+    }
+    if (str[j] == '\0' || i == 31) {
+        raise_error(ARG_INV, str, __FILE__);
+        return NULL;
+    }
+    j++; // skip parenthesis
+
+    if (strcmp(operator, "%hi") == 0) imm->modifier = 1;
+    else if (strcmp(operator, "%lo") == 0) imm->modifier = 2;
+    else {
+        raise_error(ARGS_INV, str, __FILE__);
+        return NULL;
+    }
+
+    // Read symbol until close parenthesis
+    char symbol[SYMBOL_SIZE];
+    memset(symbol, 0, sizeof(symbol));
+    i = 0;
+    while (i < 31 && str[j] != ')' && str[j] != '\0') {
+        symbol[i++] = str[j++];
+    }
+    if (*str == '\0' || i == 31) {
+        raise_error(ARG_INV, str, __FILE__);
+        return NULL;
+    }
+
+    strcpy(imm->symbol, symbol);
+    return &str[++j];
+}
 
 // Parses a string into an Immediate struct
-// First checks if the string is a character, otherwise if it's a number, and finally assumes it's a symbol
 Immediate parse_imm(const char * str) {
     Immediate imm;
-    imm.modifier = 0; // only used in special cases
+    imm.modifier = 0;
     imm.type = NONE;
     imm.intValue = 0;
+    imm.rgstr = 0;
     const size_t len = strlen(str);
 
-    // CHARACTER
-    if (str[0] == '"') {
-        if (len == 3) {
-            imm.intValue = (int32_t) str[1];
-            imm.type = NUM;
+    const char *endptr;
+
+    if (str[0] == '%') {
+        endptr = read_operator(&imm, str);
+        if (endptr == NULL) {
+            imm.modifier = 255;
             return imm;
         }
-        if (len > 3 && str[1] == '\\') {
+    }
+
+    // CHARACTER
+    else if (str[0] == '"') {
+        if (str[1] == '\\') {
             char c;
-            if (read_escape_sequence(&str[1], &c) == 0) {
+            const size_t x = read_escape_sequence(&str[1], &c);
+            if (x == 0) {
                 raise_error(ARG_INV, str, __FILE__);
                 imm.modifier = 255;
                 return imm;
             }
-
+            endptr = str+x+1;
+            if (*endptr != '"') {
+                raise_error(ARG_INV, str, __FILE__);
+                imm.modifier = 255;
+                return imm;
+            }
+            endptr++;
             imm.intValue = (int32_t) c;
             imm.type = NUM;
+        }
+        else if (str[2] == '"') {
+            imm.intValue = (int32_t) str[1];
+            imm.type = NUM;
+            endptr = &str[3];
+        }
+        else {
+            raise_error(ARG_INV, str, NULL);
+            imm.modifier = 255;
             return imm;
         }
-
-        raise_error(ARG_INV, str, NULL);
-        imm.modifier = 255;
-        return imm;
     }
 
     // NUMBER
-    if (isdigit(str[0]) || str[0] == '-') {
+    else if (isdigit(str[0]) || str[0] == '-') {
         imm.type = NUM;
         int base = 10; // assume 10
         if (str[0] == '0') {
@@ -72,34 +132,70 @@ Immediate parse_imm(const char * str) {
             } else base = 8;
         }
 
-        char *endptr;
-        const long n = strtol(str, &endptr, base);
-        if (*endptr == '(') {
-            // Register-relative address
-            // Second pass will catch further errors
-            imm.type = REG_OFFSET;
-            strcpy(imm.symbol, str);
-            return imm;
-        }
-        if (*endptr != '\0') {
+        char *ep;
+        const long n = strtol(str, &ep, base);
+        endptr = ep;
+
+        imm.intValue = (int32_t) n;
+    }
+
+    // SYMBOL
+    else {
+        if (len >= SYMBOL_SIZE) {
             raise_error(ARG_INV, str, __FILE__);
             imm.modifier = 255;
             return imm;
         }
 
-        imm.intValue = (int32_t) n;
+        strcpy(imm.symbol, str);
+        imm.type = SYMBOL;
         return imm;
     }
 
-    // SYMBOL
-    if (len >= SYMBOL_SIZE) {
+    if (*endptr == '\0') return imm;
+
+    if (*endptr != '(') {
+        raise_error(ARG_INV, str, __FILE__);
+        imm.modifier = 255;
+        return imm;
+    }
+    endptr++;
+
+    // REGISTER OFFSET
+    // save register in imm.rgstr
+    // immediate is either a number or a symbol
+    // we know which by the modifier (1 or 2 for symbol, 0 for number)
+    if (imm.type == SYMBOL && imm.modifier == 0) {
+        raise_error(ARG_INV, str, __FILE__);
+        imm.modifier = 255;
+        return imm;
+    }
+    if (imm.type == NUM && imm.modifier != 0) {
+        raise_error(ARG_INV, str, __FILE__);
+        imm.modifier = 255;
+        return imm;
+    }
+    imm.type = REG_OFFSET;
+    // read until close parenthesis
+    char rgstr[32];
+    memset(rgstr, '\0', sizeof(rgstr));
+    int i = 0;
+    while (endptr[i] != ')') {
+        if (i > 31 || *endptr == '\0') {
+            raise_error(ARG_INV, str, __FILE__);
+            imm.modifier = 255;
+            return imm;
+        }
+        rgstr[i] = endptr[i];
+        i++;
+    }
+    imm.rgstr = get_register(rgstr);
+    if (imm.rgstr == 255) {
         raise_error(ARG_INV, str, __FILE__);
         imm.modifier = 255;
         return imm;
     }
 
-    strcpy(imm.symbol, str);
-    imm.type = SYMBOL;
     return imm;
 }
 
@@ -466,50 +562,6 @@ unsigned char get_register(const char *token) {
     return (unsigned char) n;
 }
 
-// Expects as input a base-offset address of the form NUMBER(REGISTER). Allows the form (REGISTER) with an implied offset of 0
-// Writes the number to the Immediate structure and returns the register number, or -1 on failure.
-int read_base_address(const char *str, Immediate *imm) {
-    if (str[strlen(str)-1] != ')') { // Should end in ')'
-        return -1;
-    }
-
-    char address[strlen(str)+1];
-    strcpy(address, str);
-
-    // Parse string into immediate and register
-    char const *immToken = address;
-    const char *rToken = NULL;
-    for (size_t i = 0; i < strlen(str); i++) {
-        if (address[i] == '('){
-            address[i] = '\0';
-            rToken = address+i+1;
-        }
-        if (address[i] == ')') {
-            if (rToken == NULL) return -1;
-            address[i] = '\0';
-        }
-    }
-
-    Immediate i;
-    i.modifier = 0;
-    if (*immToken == '\0') {
-        i.type = NUM;
-        i.intValue = 0;
-    } else {
-        i = parse_imm(immToken);
-        if (i.modifier == 255) {
-            return -1;
-        }
-        if (i.type != NUM) return -1;
-    }
-
-    const int ret = get_register(rToken);
-    if (ret == 255) return -1;
-
-    *imm = i;
-    return ret;
-}
-
 void debug_binary(const char *name) {
     FILE *file = fopen(name, "rb");
     struct FileHeader header;
@@ -567,4 +619,9 @@ void debug_binary(const char *name) {
     }
 
     fclose(file);
+}
+
+// Returns whether c is a valid symbol character
+int is_symbol(char c) {
+    return isalnum(c) || c == '_' || c == '$' || c == '.';
 }
