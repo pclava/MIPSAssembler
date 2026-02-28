@@ -33,6 +33,8 @@ The particular details of the MIPS instruction set were sourced from _MIPS Assem
 Some example assembly files and their outputs can be found in `examples/`.
 
 ## Usage
+To build the assembler, run `make` from the main directory.
+
 `$ mips_assembler <options> <source files>`
 
 Note the files are linked **in the order they are listed**.
