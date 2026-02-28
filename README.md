@@ -40,7 +40,7 @@ To build the assembler, run `make` from the main directory.
 Note the files are linked **in the order they are listed**.
 
 The options include:
-- `-o <file>` : writes the executable to the given file (if not provided, outputs to a.out). ignored if -c flag is provided
+- `-o <file>` : writes the executable to the given file (if not provided, outputs to a.out). Ignored if -c flag is provided
 - `-c` : stops after assembler, outputs unlinked object files for each source
 - `-e.` : begin execution at the first instruction
 - `-e <symbol>` : begin execution at the given global symbol (if not provided, linker links __start and begins execution there)
@@ -50,7 +50,7 @@ For example, to build an executable `foo.out` from the source files `bar.asm` an
 `mips_assembler -o foo.out bar.asm baz.asm`
 
 **NOTE**: It is important that `pseudo.asm` and `__start.o` be in the same directory as the executable.
-The assembler currently only works with files in the current directory or in a sub-directory.
+Additionally, he assembler currently only works with files in the current directory or in a sub-directory.
 
 ## Support
 The assembler does not support the entire MIPS instruction set. It namely does not support floating-point instructions. Consult `src/instructions.c` for the full list.
