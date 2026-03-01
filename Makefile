@@ -5,10 +5,10 @@ CFLAGS=-Wall -Wextra -I$(IDIR) -g
 SRC := $(wildcard src/*.c)
 OBJ := $(SRC:.c=.o)
 
-all: mips_assembler
+all: MIPSAssembler
 
-mips_assembler: $(OBJ)
-	$(CC) $(OBJ) -o mips_assembler
+MIPSAssembler: $(OBJ)
+	$(CC) $(OBJ) -o MIPSAssembler
 
 src/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
