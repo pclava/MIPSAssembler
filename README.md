@@ -50,7 +50,7 @@ For example, to build an executable `foo.out` from the source files `bar.asm` an
 `mips_assembler -o foo.out bar.asm baz.asm`
 
 **NOTE**: It is important that `pseudo.asm` and `__start.o` be in the same directory as the executable.
-Additionally, he assembler currently only works with files in the current directory or in a sub-directory.
+Additionally, the assembler currently only works with files in the current directory or in a sub-directory.
 
 ## Support
 The assembler does not support the entire MIPS instruction set. It namely does not support floating-point instructions. Consult `src/instructions.c` for the full list.
