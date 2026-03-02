@@ -42,6 +42,7 @@ int st_add_struct(SymbolTable *table, const Symbol symbol) {
         }
         table->buckets[index] = new;
         table->buckets[index]->item = symbol;
+        table->buckets[index]->next = NULL;
         table->size++;
     } else {
         SymbolBucket *prev = NULL;
@@ -68,6 +69,7 @@ int st_add_struct(SymbolTable *table, const Symbol symbol) {
         }
         if (prev != NULL) prev->next = new;
         new->item = symbol;
+        new->next = NULL;
         table->size++;
     }
 
