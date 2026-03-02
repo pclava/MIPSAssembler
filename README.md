@@ -2,6 +2,7 @@
 ## Overview
 An assembler and linker for a subset of the MIPS instruction set, written in C. I created this shortly after learning C and MIPS to gain experience with C projects (and projects in general) and improve my skills in C.
 The program consists of a preprocessor, assembler, and linker. It can assemble and link multiple files into an executable, or just assemble them into individual object files.
+The executables can be run by my MIPS emulator at https://github.com/pclava/MIPSEmulator.
 
 The executable has the following format:
 ```
@@ -45,7 +46,7 @@ The options include:
 - `-e.` : begin execution at the first instruction
 - `-e <symbol>` : begin execution at the given global symbol (if not provided, linker links __start and begins execution there)
 
-For example, to build an executable `foo.out` from the source files `bar.asm` and `baz.asm`, one could run:
+For example, to build an executable `foo.out` from the source files `bar.asm` and `baz.asm` (while linking `__start`), one could run:
 
 `mips_assembler -o foo.out bar.asm baz.asm`
 
