@@ -16,7 +16,7 @@ and add its real equivalents directly to the InstructionList
 */
 
 int mt_init(MacroTable *table) {
-    table->buckets = malloc(245 * sizeof(MacroBucket));
+    table->buckets = malloc(MACRO_TABLE_LENGTH * sizeof(MacroBucket));
     if (table->buckets == NULL) {
         raise_error(MEM, NULL, __FILE__);
         return 0;
