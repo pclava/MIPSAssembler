@@ -48,8 +48,6 @@ static const InstrDesc instr_table[INSTRUCTION_COUNT] = {
     // Conditional branches
     { "beq",   0x04,  -1, I, {0,1,-1} },
     { "bne",   0x05,  -1, I, {0,1,-1} },
-    { "blez",  0x06,  -1, I, {0,-1,-1} },
-    { "bgtz",  0x07,  -1, I, {0,-1,-1} },
 
     // Traditional i-type, i.e. R[rt] = f(R[rs])
     { "addi",  0x08, -1, I, {1,0,-1} },
