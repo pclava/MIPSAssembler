@@ -42,6 +42,7 @@ int main(int argc, char *argv[]) {
                     out_path = NULL;
                     break;
                 case 'e':
+                    performLinking = 0;
                     if (argv[i][2] == '.') {
                         entry = NULL;
                     } else {
