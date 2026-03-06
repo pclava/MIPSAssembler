@@ -142,7 +142,7 @@ extern char * TOKENIZE_START;
 
 char * tokenize(char *str, char delim);
 
-int read_string(char *dst, size_t *dst_size, char *token);
+char * read_string(char *dst, size_t *dst_size, char *token, int* len);
 
 unsigned char get_register(const char *token);
 
