@@ -39,3 +39,9 @@
     lui $at, %hi(%lbl)
     ori %r, $at, %lo(%lbl)
 .end_macro
+
+# Terminate program
+.macro done
+    li $v0, 10
+    syscall
+.end_macro
