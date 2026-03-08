@@ -48,7 +48,7 @@ The options include:
 
 For example, to build an executable `foo.out` from the source files `bar.asm` and `baz.asm` (while linking `__start`), one could run:
 
-`mips_assembler -o foo.out bar.asm baz.asm`
+`MIPSAssembler -o foo.out bar.asm baz.asm`
 
 **NOTE**: It is important that `pseudo.asm` and `__start.o` be in the same directory as the executable.
 Additionally, the assembler currently only works with files in the current directory or in a sub-directory.
