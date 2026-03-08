@@ -5,12 +5,13 @@
 
 /* === TYPES === */
 
-typedef struct {
+// Make packed to ensure constant size and offset between systems
+typedef struct __attribute__((packed)) {
     // "address at (segment+target_offset) requires relocation of type (reloc_type) for the symbol (dependency)"
-    uint32_t target_offset;       // Instruction or data item that depends on relocation
-    enum Segment segment;         // Segment (text or data). This is needed so the linker can determine the absolute address
-    enum RelocType reloc_type;    // Type of relocation needed
-    char dependency[SYMBOL_SIZE]; // Symbol the target depends on
+    uint32_t target_offset;         // Instruction or data item that depends on relocation
+    char dependency[SYMBOL_SIZE];   // Symbol the target depends on
+    uint8_t segment;                // Segment (text or data). This is needed so the linker can determine the absolute address
+    uint8_t reloc_type;             // Type of relocation needed
 } RelocationEntry;
 
 typedef struct {

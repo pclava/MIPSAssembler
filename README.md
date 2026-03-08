@@ -30,7 +30,7 @@ Object files have the following format:
   - ...
 ```
 
-The particular details of the MIPS instruction set were sourced from _MIPS Assembly Language Programmer's Guide_ (Silicon Graphics, 1992). 
+The particular details of the MIPS instruction set were sourced from _MIPS Assembly Language Programmer's Guide_ (Silicon Graphics, 1992) and _The MIPS32® Instruction Set Manual_ (MIPS Technologies, 2016). 
 Some example assembly files and their outputs can be found in `examples/`.
 
 ## Usage

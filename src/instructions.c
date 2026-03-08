@@ -10,65 +10,83 @@ This handles the representation of the MIPS instruction set
 as well as converting the intermediate representation Instruction structures to machine code
 */
 
-#define INSTRUCTION_COUNT 40
+#define INSTRUCTION_COUNT 64
 #define INSTRUCTION_TABLE_SIZE 256 // SHOULD BE DECENTLY LARGER THAN INSTRUCTION COUNT
 
 // ADD NEW INSTRUCTIONS HERE
 static const InstrDesc instr_table[INSTRUCTION_COUNT] = {
     // MNEMONIC, OPCODE, FUNCT, FORMAT, REGISTER ORDER
 
-    // R TYPE
-    { "add",   0x00,  0x20, R, {2,0,1}},
-    { "addu",  0x00,  0x21, R, {2,0,1} },
-    { "and",   0x00,  0x24, R, {2,0,1} },
-    { "jr",    0x00,  0x08, R, {0,-1,-1} },
-    { "nor",   0x00,  0x27, R, {2,0,1} },
-    { "or",    0x00,  0x25, R, {2,0,1} },
-    { "xor",   0x00,  0x26, R, {2,0,1} },
-    { "slt",   0x00,  0x2a, R, {2,0,1} },
-    { "sltu",  0x00,  0x2b, R, {2,0,1} },
-    { "sll",   0x00,  0x00, R, {2,1,-1} },
-    { "srl",   0x00,  0x02, R, {2,1,-1} },
-    { "sub",   0x00,  0x22, R, {2,0,1} },
-    { "subu",  0x00,  0x23, R, {2,0,1} },
-    { "div",   0x00,  0x1a, R, {0,1,-1} },
-    { "divu",  0x00,  0x1b, R, {0,1,-1} },
-    { "mfhi",  0x00,  0x10, R, {2,-1,-1} },
-    { "mflo",  0x00,  0x12, R, {2,-1,-1} },
-    { "mul",   0x1c,  0x02, R, {2,0,1} },
-    { "mult",  0x00,  0x18, R, {0,1,-1} },
-    { "multu", 0x00,  0x19, R, {0,1,-1} },
-    { "sra",   0x00,  0x03, R, {2,1,-1} },
-
-    // Special R type
-    { "syscall", 0x00, 0x0c, R, {-1,-1,-1} },
-    { "nop",     0x00, 0x00, R, {-1,-1,-1} },
-
-    // I TYPE (in ascending order)
-    // Conditional branches
-    { "beq",   0x04,  -1, I, {0,1,-1} },
+    // MAIN ENCODING
+    { "beq",   0x04,  -1, I, {0,1,-1} },    // Conditional branches
     { "bne",   0x05,  -1, I, {0,1,-1} },
-
-    // Traditional i-type, i.e. R[rt] = f(R[rs])
-    { "addi",  0x08, -1, I, {1,0,-1} },
+    { "blez",  0x06,  -1, I, {0,-1,-1} },
+    { "bgtz",  0x07,  -1, I, {0,-1,-1} },
+    { "addi",  0x08, -1, I, {1,0,-1} },     // Traditional O-type, i.e. R[rt] = f(R[rs])
     { "addiu", 0x09, -1, I, {1,0,-1} },
     { "slti",  0x0a, -1, I, {1,0,-1} },
     { "sltiu", 0x0b, -1, I, {1,0,-1} },
     { "andi",  0x0c, -1, I, {1,0,-1} },
     { "ori",   0x0d, -1, I, {1,0,-1} },
     { "lui",   0x0f, -1, I, {1,-1,-1} },
-
-    // Memory instructions
-    { "lb",    0x20, -1, I, {1,-1,-1} },
+    { "lb",    0x20, -1, I, {1,-1,-1} },    // Memory instructions
+    { "lh",    0x21, -1, I, {1,-1,-1} },
+    { "lwl",   0x22, -1, I, {1,-1,-1} },
     { "lw",    0x23, -1, I, {1,-1,-1} },
     { "lbu",   0x24, -1, I, {1,-1,-1} },
+    { "lhu",   0x25, -1, I, {1,-1,-1} },
+    { "lwr",   0x26, -1, I, {1,-1,-1} },
     { "sb",    0x28, -1, I, {1,-1,-1} },
     { "sh",    0x29, -1, I, {1,-1,-1} },
+    { "swl",   0x2a, -1, I, {1,-1,-1} },
     { "sw",    0x2b, -1, I, {1,-1,-1} },
+    { "swr",   0x2e, -1, I, {1,-1,-1} },
+    { "j",     0x02,  -1, J, {-1,-1,-1} },  // J TYPE
+    { "jal",   0x03,  -1, J, {-1,-1,-1} },
+    // need to modify relocation table for these
+    // { "bc",    0x32,  -1, J, {-1,-1,-1} },
+    // { "balc",  0x3a,  -1, J, {-1,-1,-1} },
 
-    // J TYPE
-    { "j",     0x02,  -1, J, {-1,-1,-1} },
-    { "jal",   0x03,  -1, J, {-1,-1,-1} }
+    // SPECIAL ENCODING
+    { "sll",        0x00, 0x00, R, {2,1,-1}     },  // R TYPE
+    { "nop",        0x00, 0x00, R, {-1,-1,-1}   },
+    { "srl",        0x00, 0x02, R, {2,1,-1}     },
+    { "sra",        0x00, 0x03, R, {2,1,-1}     },
+    { "sllv",       0x00, 0x04, R, {2,1,0}      },
+    { "srlv",       0x00, 0x04, R, {2,1,0}      },
+    { "srav",       0x00, 0x07, R, {2,1,0}      },
+    { "jr",         0x00, 0x08, R, {0,-1,-1}    },
+    { "jalr",       0x00, 0x09, R, {0,2,-1}      },
+    { "movz",       0x00, 0x0a, R, {2,0,1}      },
+    { "movn",       0x00, 0x0b, R, {2,0,1}      },
+    { "syscall",    0x00, 0x0c, R, {-1,-1,-1}   },
+    { "break",      0x00, 0x0d, R, {-1,-1,-1}   },
+    { "mfhi",       0x00, 0x10, R, {2,-1,-1}    },
+    { "mthi",       0x00, 0x11, R, {0,-1,-1}    },
+    { "mflo",       0x00, 0x12, R, {2,-1,-1}    },
+    { "mtlo",       0x00, 0x13, R, {0,-1,-1}    },
+    { "mult",       0x00, 0x18, R, {0,1,-1}     },
+    { "multu",      0x00, 0x19, R, {0,1,-1}     },
+    { "div",        0x00, 0x1a, R, {0,1,-1}     },
+    { "divu",       0x00, 0x1b, R, {0,1,-1}     },
+    { "add",        0x00, 0x20, R, {2,0,1}      },
+    { "addu",       0x00, 0x21, R, {2,0,1}      },
+    { "sub",        0x00, 0x22, R, {2,0,1}      },
+    { "subu",       0x00, 0x23, R, {2,0,1}      },
+    { "and",        0x00, 0x24, R, {2,0,1}      },
+    { "or",         0x00, 0x25, R, {2,0,1}      },
+    { "xor",        0x00, 0x26, R, {2,0,1}      },
+    { "nor",        0x00, 0x27, R, {2,0,1}      },
+    { "slt",        0x00, 0x2a, R, {2,0,1}      },
+    { "sltu",       0x00, 0x2b, R, {2,0,1}      },
+    { "tge",        0x00, 0x30, R, {0,1,-1}     },
+    { "tgeu",       0x00, 0x31, R, {0,1,-1}     },
+    { "tlt",        0x00, 0x32, R, {0,1,-1}     },
+    { "tltu",       0x00, 0x33, R, {0,1,-1}     },
+    { "teq",        0x00, 0x34, R, {0,1,-1}     },
+    { "seleqz",     0x00, 0x35, R, {2,0,1}      },
+    { "tne",        0x00, 0x36, R, {0,1,-1}     },
+    { "selnez",     0x00, 0x37, R, {2,0,1}      },
 };
 
 // Allocate memory and initialize hash table
@@ -196,13 +214,39 @@ uint32_t convert_rtype(Instruction instruction, const InstrDesc *desc) {
     // Save the immediate field in shamt
     unsigned int shamt = 0;
     if (instruction.imm.type == NUM) {
+
+        // The immediate is usually shamt. The special cases are the trap and break instructions
+        // which have different encodings.
+
+        if ((funct >= 0x30 && funct <= 0x34) || funct == 0x36) { // Trap instruction
+            if (instruction.imm.intValue > 511 || instruction.imm.intValue < -512) { // should fit in 10 bits
+                raise_error(ARGS_INV, NULL, __FILE__);
+                return -1;
+            }
+            opcode <<= 26;
+            regs[0] <<= 21;
+            regs[1] <<= 16;
+            instruction.imm.intValue <<= 6;
+            return opcode | regs[0] | regs[1] | instruction.imm.intValue | funct;
+        }
+
+        if (funct == 0x0d) { // BREAK instruction
+            if (instruction.imm.intValue > 524287 || instruction.imm.intValue < -524288) { // should fit in 20 bits
+                raise_error(ARGS_INV, NULL, __FILE__);
+                return -1;
+            }
+            opcode <<= 26;
+            instruction.imm.intValue <<= 6;
+            return opcode | instruction.imm.intValue | funct;
+        }
+
         /* From the documentation regarding shamt:
-            "If src2 (or the immediate value) is greater than
-             31 or less than 0, src1 shifts by src2 MOD 32. "
-        NOTE: This allows for a 32-bit signed immediate
+            "   If src2 (or the immediate value) is greater than
+                31 or less than 0, src1 shifts by src2 MOD 32.  "
+        Note this allows the user to provide a 32-bit signed immediate
          */
         shamt = (instruction.imm.intValue % 32 + 32) % 32;
-    } else if (instruction.imm.type == SYMBOL) {
+    } else if (instruction.imm.type != NONE) {
         raise_error(ARG_INV, instruction.imm.symbol, __FILE__);
         return -1;
     }
@@ -232,7 +276,7 @@ uint32_t convert_itype(const Instruction instruction, SymbolTable *symbol_table,
 
     /* I-type instructions are conveniently organized:
 
-     * conditional branches: opcodes 0x4 and 0x5
+     * conditional branches: opcodes 0x4 - 0x7
      * traditional operations (i.e. rt = f(rs)): opcodes 0x8 - 0xF
      * memory instructions: opcodes 0x20 - 0x30
      The immediates for these instructions are handled differently.
@@ -250,7 +294,7 @@ uint32_t convert_itype(const Instruction instruction, SymbolTable *symbol_table,
 
     // Get immediate
     uint32_t imm = 0;
-    if (opcode == 4 || opcode == 5) { // Conditional branch
+    if (opcode >= 0x4 && opcode <= 0x7) { // Conditional branch
         if (instruction.imm.type != SYMBOL) {
             raise_error(ARGS_INV, NULL, __FILE__);
             return -1;
@@ -269,7 +313,7 @@ uint32_t convert_itype(const Instruction instruction, SymbolTable *symbol_table,
 
         imm = 0;
     }
-    else if (opcode >= 8 && opcode <= 15) { // Traditional operation
+    else if (opcode >= 0x8 && opcode <= 0xf) { // Traditional operation
         // Get numerical immediate
         if (instruction.imm.type != SYMBOL && instruction.imm.type != NUM) {
             raise_error(ARGS_INV, NULL, __FILE__);
@@ -319,7 +363,7 @@ uint32_t convert_itype(const Instruction instruction, SymbolTable *symbol_table,
         // Convert to unsigned 32-bits
         imm = (uint32_t) signed_immediate & 0x0000FFFF;
     }
-    else if (opcode >= 32 && opcode <= 43) { // Memory instruction
+    else if (opcode >= 0x20 && opcode <= 0x2e) { // Memory instruction
         // Get rs and immediate from instruction.immediate
         // Address is in the form imm(rs) or (rs), i.e., 0x542($t2). If no number given, 0 is used
 

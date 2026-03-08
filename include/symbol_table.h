@@ -8,11 +8,12 @@
 
 /* === TYPES === */
 
-typedef struct {
+// Make packed to ensure constant size and offset between systems
+typedef struct __attribute__((packed)) {
     char name[SYMBOL_SIZE]; // LABELS CAN BE UP TO 31 CHARACTERS
     uint32_t offset;        // Offset relative to start of section
-    enum Segment segment;   // Text or data
-    enum Binding binding;   // Local, global, or undefined
+    uint8_t segment;        // Text or data
+    uint8_t binding;        // Local, global, or undefined
 } Symbol;
 
 typedef struct {

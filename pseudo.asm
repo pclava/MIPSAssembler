@@ -39,3 +39,16 @@
     lui $at, %hi(%lbl)
     ori %r, $at, %lo(%lbl)
 .end_macro
+
+# Terminate program with exit code 0
+.macro done
+    li $v0, 10
+    syscall
+.end_macro
+
+# Terminate program with an exit code
+.macro exit %imm
+    li $v0, 17
+    li $a0, %imm
+    syscall
+.end_macro

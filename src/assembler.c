@@ -324,11 +324,10 @@ int read_data(const Assembler *assembler, const Line *line) {
 
                 // Argument is a string; note I keep the first quote to differentiate strings from other data (namely labels)
                 if (token[0] == '"') {
-                    const int res = read_string(argument, &argument_size, token);
-                    if (res == -1) {
+                    argument = read_string(argument, &argument_size, token, &string_length);
+                    if (argument == NULL) {
                         return 0;
                     }
-                    string_length = res;
                 }
 
                 // Argument is not a string

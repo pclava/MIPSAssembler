@@ -308,7 +308,12 @@ int link(const char *out_path, char *object_files[], int file_count, const char 
     if (entry_symbol == NULL) {
         final_header.entry = TEXT_START;
     } else {
-        final_header.entry = st_get_symbol_safe(&global_symbols, entry_symbol)->offset;
+        Symbol* entry = st_get_symbol_safe(&global_symbols, entry_symbol);
+        if (entry == NULL) {
+            error_context("Did you add .globl to the entry symbol?");
+            return 0;
+        }
+        final_header.entry = entry->offset;
     }
 
     /*
