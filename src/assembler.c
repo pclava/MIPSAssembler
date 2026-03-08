@@ -73,7 +73,7 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
             label[len-1] = '\0';
 
             // Add to symbol table (assumes local, but if it exists as global, will preserve that binding)
-            st_add_symbol(assembler->symbol_table, label, assembler->instruction_list->text_offset, TEXT, LOCAL);
+            if (st_add_symbol(assembler->symbol_table, label, assembler->instruction_list->text_offset, TEXT, LOCAL) == 0) return 0;
         }
 
         // Read mnemonic. This will catch the first token not ending in ':' and set readMnemonic to true.
