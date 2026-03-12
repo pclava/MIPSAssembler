@@ -213,7 +213,7 @@ int file_relocation(const SourceFile *source, const SymbolTable *global_symbols)
         const char *dependency_str = str_from_index(source->string_table, entry.strtab_index);
         const Symbol *dependency = st_get_symbol_by_name(source->symbol_table, source->string_table, dependency_str);
         if (dependency == NULL) {
-            raise_error(TOKEN_ERR, dependency_str, __FILE__);
+            raise_error(TOKEN_ERR, dependency_str, source->name);
             return 0;
         }
 
@@ -231,9 +231,9 @@ int file_relocation(const SourceFile *source, const SymbolTable *global_symbols)
                     fprintf(stderr, "Error linking %s: symbol undefined\n", source->name);
                     return 0;
                 }
-                dependency = st_get_symbol_safe(global_symbols, dependency_str);
+                dependency = st_get_symbol(global_symbols, dependency_str);
                 if (dependency == NULL) {
-                    raise_error(TOKEN_ERR, dependency_str, __FILE__);
+                    raise_error(TOKEN_ERR, dependency_str, source->name);
                     if (strcmp(dependency_str, "main") == 0) {
                         error_context("Could not find symbol 'main'. Have you exported it with .globl?");
                     }
@@ -308,6 +308,7 @@ int link(const char *out_path, char *object_files[], int file_count, const char 
         // Load file
         SourceFile file;
         file_init(&file, text_offset, data_offset, header.text_size, header.data_size);
+        file.name = object_files[file_index];
         load_file(f, &file, &header, &global_symbols);
         source_files[file_index] = file;
         fclose(f);

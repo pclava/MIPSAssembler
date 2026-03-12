@@ -61,8 +61,8 @@ void string_insert(const String *str, size_t index, char c) {
 // Writes src to dst, resizing if necessary
 int string_cpy_to(String *dst, const char *src) {
     const size_t l = strlen(src);
-    if (dst->len < l) {
-        if (str_resize(dst, l) == 0) return 0;
+    if (dst->cap < l) {
+        if (str_resize(dst, l+1) == 0) return 0;
     }
     strcpy(dst->str, src);
     dst->len = l;
