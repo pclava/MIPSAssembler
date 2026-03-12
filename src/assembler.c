@@ -633,7 +633,7 @@ int assembler_second_pass(Assembler *assembler, const char *output) {
     if (strtab_init(&strtab) == 0) return 0;
     strtab_populate(&strtab, assembler->symbol_table);
 
-    strtab_debug(&strtab);
+    // strtab_debug(&strtab);
 
     // === Write Relocation Table ===
     success = write_reloc_table(file, assembler->relocation_table);
