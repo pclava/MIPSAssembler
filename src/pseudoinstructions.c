@@ -112,7 +112,7 @@ Line *define_macro(Macro *macro, const Line *line) {
 
     // Get name
     token = tokenize(NULL, ' ');
-    if (token == NULL || strlen(token) >= SYMBOL_SIZE) {
+    if (token == NULL || strlen(token) >= MACRO_SIZE) {
         raise_error(ARGS_INV, NULL, __FILE__);
         return NULL;
     }
@@ -189,8 +189,8 @@ int insert_macro(Text *text_list, const MacroTable *table, const char *name, Lin
     char buf[strlen(line->text)+1];
     strcpy(buf,line->text);
 
-    // Retrieve arguments
-    char args[SYMBOL_SIZE][SYMBOL_SIZE];
+    // Retrieve arguments (up to 32 arguments of 32 characters each)
+    char args[MACRO_SIZE][MACRO_SIZE];
     memset(args, '\0', sizeof(args));
     char *token = tokenize(buf, ' ');
     // Iterate until we get back to the name (skipping labels)
@@ -240,7 +240,7 @@ int insert_macro(Text *text_list, const MacroTable *table, const char *name, Lin
             if (c == '%') {
 
                 // Get argument name
-                char argbuf[SYMBOL_SIZE];
+                char argbuf[MACRO_SIZE];
                 memset(argbuf, '\0', sizeof(argbuf));
                 argbuf[0] = '%';
                 int j = 1;
@@ -269,7 +269,7 @@ int insert_macro(Text *text_list, const MacroTable *table, const char *name, Lin
                 j = 0;
                 int res = 0;
                 while (strcmp(macro->args[j++], argbuf) != 0) {
-                    if (j == SYMBOL_SIZE || macro->args[j-1][0] == '\0') { // if we've checked every argument
+                    if (j == MACRO_SIZE || macro->args[j-1][0] == '\0') { // if we've checked every argument
                         raise_error(ARG_INV, argbuf, __FILE__);
                         return 0;
                     }

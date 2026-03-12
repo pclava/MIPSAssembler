@@ -3,7 +3,11 @@
 
 /* === TYPES === */
 
-typedef struct {
+typedef struct Line Line;
+typedef struct Text Text;
+
+// TODO: update this to use a String
+struct Line {
     unsigned int len;
     unsigned int cap;
 
@@ -13,13 +17,13 @@ typedef struct {
 
     void *next;
     void *prev;
-} Line;
+};
 
-typedef struct {
+struct Text {
     Line *head;
     Line *tail;
     unsigned int len;
-} Text;
+};
 
 /* === METHODS === */
 

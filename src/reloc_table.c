@@ -21,15 +21,12 @@ int rt_init(RelocationTable *table) {
 }
 
 // Initializes a RelocationEntry
-int re_init(RelocationEntry *reloc, uint32_t offset, enum Segment segment, enum RelocType reloc_type, const char *dependency) {
+int re_init(RelocationEntry *reloc, uint32_t offset, enum Segment segment, enum RelocType reloc_type, String *dependency) {
     reloc->target_offset = offset;
     reloc->reloc_type = reloc_type;
     reloc->segment = segment;
-    if (strlen(dependency) >= SYMBOL_SIZE) {
-        raise_error(TOKEN_ERR, dependency, __FILE__);
-        return 0;
-    }
-    strcpy(reloc->dependency, dependency);
+    reloc->dependency = dependency;
+    reloc->strtab_index = -1;
     return 1;
 }
 
@@ -65,16 +62,23 @@ void re_debug(const RelocationEntry entry) {
         strcpy(segment, ".data");
     }
 
-    printf("address at %s+%d needs relocation of type %d for symbol %s\n", segment, entry.target_offset, entry.reloc_type, entry.dependency);
+    printf("address at %s+%d needs relocation of type %d for symbol %s\n", segment, entry.target_offset, entry.reloc_type, entry.dependency->str);
 }
 
 int write_reloc_table(FILE *file, const RelocationTable *table) {
     write_word(file, table->len);
     for (size_t i = 0; i < table->len; i++) {
-        if (fwrite(&table->list[i], sizeof(RelocationEntry), 1, file) == 0) {
-            ERROR_HANDLER.err_code = FILE_IO;
-            return 0;
-        }
+        const RelocationEntry *entry = &table->list[i];
+
+        if (fwrite(&entry->dependency->offset, sizeof(entry->dependency->offset), 1, file) != 1) goto file_err;
+        if (fwrite(&entry->target_offset, sizeof(entry->target_offset), 1, file) != 1) goto file_err;
+        if (fwrite(&entry->segment, sizeof(entry->segment), 1, file) != 1) goto file_err;
+        if (fwrite(&entry->reloc_type, sizeof(entry->reloc_type), 1, file) != 1) goto file_err;
+        continue;
+
+        file_err:
+        ERROR_HANDLER.err_code = FILE_IO;
+        return 0;
     }
     return 1;
 }

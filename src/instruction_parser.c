@@ -54,7 +54,7 @@ void instruction_debug(const Instruction instruction) {
     if (instruction.imm.type == NUM) {
         printf(" imm: 0x%x\n", instruction.imm.intValue);
     } else if (instruction.imm.type == SYMBOL) {
-        printf(" imm: %s\n", instruction.imm.symbol);
+        printf(" imm: %s\n", instruction.imm.symbol->name->str);
     }
     else {
         printf("\n");

@@ -3,19 +3,22 @@
 #include <stdint.h>
 #include "utils.h"
 
-typedef struct {
+typedef struct Instruction Instruction;
+typedef struct InstructionList InstructionList;
+
+struct Instruction {
     char mnemonic[MNEMONIC_LENGTH]; // longest mnemonic is 5 or 6 characters, including some extra bytes just in case
     unsigned char registers[3];
     Immediate imm;
     const Line *line; // corresponding line in the Text list
-} Instruction;
+} ;
 
-typedef struct {
+struct InstructionList {
     size_t len;
     size_t cap;
     uint32_t text_offset;
     Instruction *list;
-} InstructionList;
+};
 
 /* === INSTRUCTIONLIST METHODS === */
 

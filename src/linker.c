@@ -4,8 +4,13 @@
 #include <string.h>
 
 void file_destroy(const SourceFile *file) {
-    free(file->relocation_table);
+    rt_destroy(file->relocation_table);
+    st_destroy(file->symbol_table);
+    free(file->text);
+    free(file->data);
     free(file->symbol_table);
+    free(file->string_table);
+    free(file->relocation_table);
 }
 
 int file_init(SourceFile *file, uint32_t text_offset, uint32_t data_offset, uint32_t text_size, uint32_t data_size) {
@@ -52,7 +57,7 @@ int file_init(SourceFile *file, uint32_t text_offset, uint32_t data_offset, uint
 
 }
 
-// Returns final memory address of a symbol, with the formula *section base + object file offset + symbol offset*
+// Returns final memory address of a symbol, with the formula: section base + object file offset + symbol offset
 uint32_t get_final_address(const Symbol symbol, const uint32_t object_offset) {
     switch (symbol.segment) {
         case TEXT:
@@ -137,7 +142,21 @@ void debug_section(const SourceFile file, const enum Segment segment) {
     }
 }
 
-void load_file(FILE *source, const SourceFile *file, const struct FileHeader * header, SymbolTable *global_symbols) {
+static const char *str_from_index(const char *strtab, const size_t index) {
+    return &strtab[index];
+}
+
+void load_file(FILE *source, SourceFile *file, const struct FileHeader * header, SymbolTable *global_symbols) {
+
+    // Read string table first
+    long old_pos = ftell(source);
+    const uint32_t strtab_start = 8 + header->text_size + header->data_size + header->sym_size + header->r_size;
+    fseek(source, strtab_start, SEEK_CUR);
+    const uint32_t strtab_size = read_word(source);
+    file->string_table = malloc(strtab_size); // TODO: error check
+    fread(file->string_table, strtab_size, 1, source);
+    fseek(source, old_pos, SEEK_SET); // return to start of text segment
+
     // Read text
     for (uint32_t i = 0; i < header->text_size/4; i++) {
         file->text[i] = read_word(source);
@@ -152,7 +171,12 @@ void load_file(FILE *source, const SourceFile *file, const struct FileHeader * h
     const uint32_t reloc_size = read_word(source);
     for (uint32_t i = 0; i < reloc_size; i++) {
         RelocationEntry entry;
-        fread(&entry, sizeof(RelocationEntry), 1, source);
+        entry.dependency = NULL;
+        fread(&entry.strtab_index, sizeof(entry.strtab_index), 1, source);
+        fread(&entry.target_offset, sizeof(entry.target_offset), 1, source);
+        fread(&entry.segment, sizeof(entry.segment), 1, source);
+        fread(&entry.reloc_type, sizeof(entry.reloc_type), 1, source);
+
         rt_add(file->relocation_table, entry);
     }
 
@@ -160,8 +184,12 @@ void load_file(FILE *source, const SourceFile *file, const struct FileHeader * h
     const uint32_t symbol_table_size = read_word(source);
     for (uint32_t i = 0; i < symbol_table_size; i++) {
         Symbol symbol;
-        fread(&symbol, sizeof(Symbol), 1, source);
-        st_add_struct(file->symbol_table, symbol);
+        symbol.name = NULL;
+        fread(&symbol.strtab_index, sizeof(symbol.strtab_index), 1, source);
+        fread(&symbol.offset, sizeof(symbol.offset), 1, source);
+        fread(&symbol.segment, sizeof(symbol.segment), 1, source);
+        fread(&symbol.binding, sizeof(symbol.binding), 1, source);
+        st_add_by_name(file->symbol_table, file->string_table, symbol);
 
         // Add global symbols to symbol table
         if (symbol.binding == GLOBAL && symbol.segment != UNDEF) {
@@ -171,7 +199,7 @@ void load_file(FILE *source, const SourceFile *file, const struct FileHeader * h
             } else if (symbol.segment == DATA) {
                 final_address = get_final_address(symbol, file->data_offset);
             }
-            st_add_symbol(global_symbols, symbol.name, final_address, symbol.segment, GLOBAL);
+            st_add_symbol(global_symbols, str_from_index(file->string_table, symbol.strtab_index), final_address, symbol.segment, GLOBAL);
         }
     }
 }
@@ -182,7 +210,12 @@ int file_relocation(const SourceFile *source, const SymbolTable *global_symbols)
     const uint32_t data_offset = source->data_offset;
     for (size_t i = 0; i < reloc_table->len; i++) {
         const RelocationEntry entry = reloc_table->list[i];
-        const Symbol *dependency = st_get_symbol_safe(source->symbol_table, entry.dependency);
+        const char *dependency_str = str_from_index(source->string_table, entry.strtab_index);
+        const Symbol *dependency = st_get_symbol_by_name(source->symbol_table, source->string_table, dependency_str);
+        if (dependency == NULL) {
+            raise_error(TOKEN_ERR, dependency_str, __FILE__);
+            return 0;
+        }
 
         // Get final address for each symbol
         uint32_t final_address = 0;
@@ -198,10 +231,11 @@ int file_relocation(const SourceFile *source, const SymbolTable *global_symbols)
                     fprintf(stderr, "Error linking %s: symbol undefined\n", source->name);
                     return 0;
                 }
-                dependency = st_get_symbol_safe(global_symbols, entry.dependency);
+                dependency = st_get_symbol_safe(global_symbols, dependency_str);
                 if (dependency == NULL) {
-                    if (strcmp(entry.dependency, "main") == 0) {
-                        fprintf(stderr, "Could not find symbol 'main'. Have you exported it with .globl?\n");
+                    raise_error(TOKEN_ERR, dependency_str, __FILE__);
+                    if (strcmp(dependency_str, "main") == 0) {
+                        error_context("Could not find symbol 'main'. Have you exported it with .globl?");
                     }
                     return 0;
                 }
@@ -241,6 +275,8 @@ int link(const char *out_path, char *object_files[], int file_count, const char 
     struct FileHeader final_header;
     final_header.text_size = 0;
     final_header.data_size = 0;
+    final_header.r_size = 0;
+    final_header.sym_size = 0;
 
     /*
     For each file:
@@ -307,7 +343,8 @@ int link(const char *out_path, char *object_files[], int file_count, const char 
     // Determine entry
     if (entry_symbol == NULL) {
         final_header.entry = TEXT_START;
-    } else {
+    }
+    else {
         Symbol* entry = st_get_symbol_safe(&global_symbols, entry_symbol);
         if (entry == NULL) {
             error_context("Did you add .globl to the entry symbol?");
@@ -346,6 +383,7 @@ int link(const char *out_path, char *object_files[], int file_count, const char 
     }
     if (link_start) file_destroy(&start);
 
+    st_destroy(&global_symbols);
     return 1;
 
     _link_failed:

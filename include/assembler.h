@@ -10,7 +10,9 @@
 
 /* === TYPES === */
 
-typedef struct {
+typedef struct Assembler Assembler;
+
+struct Assembler {
     Text *preprocessed;
     MacroTable *macro_table;
     DataList *data_list;
@@ -18,7 +20,7 @@ typedef struct {
     SymbolTable *symbol_table;
     InstructionTable *instruction_table;
     RelocationTable *relocation_table;
-} Assembler;
+};
 
 /* === ASSEMBLER STRUCTURE METHODS === */
 

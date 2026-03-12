@@ -44,7 +44,8 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
     unsigned char args[3];
     int readMnemonic = 0; // Whether the mnemonic has been read. Set to true when the assembler finds the first token not ending in ':'
 
-    char label[SYMBOL_SIZE];
+    String label;
+    if (string_init(&label) == 0) return 0;
 
     // Loop through each token
     while (token != NULL) {
@@ -68,12 +69,11 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
                     raise_error(SYMBOL_INV, token, __FILE__);
                     return 0;
                 }
-                label[i] = token[i];
+                string_insert(&label, i, token[i]);
             }
-            label[len-1] = '\0';
 
             // Add to symbol table (assumes local, but if it exists as global, will preserve that binding)
-            if (st_add_symbol(assembler->symbol_table, label, assembler->instruction_list->text_offset, TEXT, LOCAL) == 0) return 0;
+            if (st_add_symbol(assembler->symbol_table, label.str, assembler->instruction_list->text_offset, TEXT, LOCAL) == 0) return 0;
         }
 
         // Read mnemonic. This will catch the first token not ending in ':' and set readMnemonic to true.
@@ -122,7 +122,7 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
             // Argument isn't a register, so assume it's an immediate
             else {
                 is_imm:
-                instruction->imm = parse_imm(token);
+                instruction->imm = parse_imm(token, assembler->symbol_table);
                 if (instruction->imm.modifier == 255) {
                     return 0;
                 }
@@ -132,20 +132,14 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
                     return 0;
                 }
 
-                // Check symbol
-                if (instruction->imm.type == SYMBOL) {
-                    if (st_exists(assembler->symbol_table, instruction->imm.symbol) == SYMBOL_TABLE_SIZE) {
-                        // Doesn't exist yet, add as local undefined. may be made global later
-                        st_add_symbol(assembler->symbol_table, instruction->imm.symbol, 0, UNDEF, LOCAL);
-                    }
-                }
-
                 break;
             }
         }
 
         token = tokenize(NULL, ' ');
     }
+
+    string_destroy(&label);
 
     // Add registers
     int i;
@@ -163,14 +157,8 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
 // Adds Instruction to InstructionList, and converts special instructions
 int process_instruction(const Instruction instruction, InstructionList *instruction_list) {
 
-    // Check special cases: `la` (load address) and `li` (load immediate)
-    // necessary because assembler currently doesn't support %hi and %lo
-    // if (strcmp(instruction.mnemonic, "la") == 0) {
-    //     if (la(instruction, instruction_list) == -1) {
-    //         return 0;
-    //     }
-    //     return 1;
-    // }
+    // Check special case: `li` (load immediate)
+    // necessary because assembler currently doesn't support %hi and %lo for numerical values
     if (strcmp(instruction.mnemonic, "li") == 0) {
         if (li(instruction, instruction_list) == -1) {
             return 0;
@@ -212,9 +200,8 @@ int read_data(const Assembler *assembler, const Line *line) {
     int argc = 0; // Number of data items stored
     int readDirective = 0; // Whether the directive has been read. Set to true by the assembler when it finds the first token not ending in ':'
 
-    char labels[16][SYMBOL_SIZE]; // Supports up to 16 labels at a time. Should be enough. Who is declaring 16 duplicate labels?
+    String labels[16]; // Supports up to 16 labels at a time. Should be enough. Who is declaring 16 duplicate labels?
     size_t label_count = 0;
-    memset(labels, '\0', sizeof(labels));
 
     size_t argument_size = 32;
     char *argument = malloc(argument_size);
@@ -229,6 +216,8 @@ int read_data(const Assembler *assembler, const Line *line) {
 
         // Token is a label
         if (token[len-1] == ':') {
+            string_init(&labels[label_count]);
+
             // Set aside label, add to symbol list later
             // We set it aside because the directive may add padding before the data it stores and we don't know the directive yet
             if (strlen(token) <= 1 || readDirective) { // Labels should not be empty and should precede the mnemonic
@@ -248,9 +237,8 @@ int read_data(const Assembler *assembler, const Line *line) {
                     free(argument);
                     return 0;
                 }
-                labels[label_count][i] = token[i];
+                string_insert(&labels[label_count], i, token[i]);
             }
-            labels[label_count][strlen(token)-1] = '\0';
             label_count++;
 
             token = tokenize(NULL, ' ');
@@ -285,9 +273,9 @@ int read_data(const Assembler *assembler, const Line *line) {
                 }
 
                 // Save label(s) (after alignment)
-                if (labels[0][0] != '\0') {
+                if (label_count != 0) {
                     for (size_t i = 0; i < label_count; i++) {
-                        if (st_add_symbol(assembler->symbol_table, labels[i], assembler->data_list->data_offset, DATA, LOCAL) == 0) {
+                        if (st_add_symbol(assembler->symbol_table, labels[i].str, assembler->data_list->data_offset, DATA, LOCAL) == 0) {
                             free(argument);
                             return 0;
                         }
@@ -303,9 +291,9 @@ int read_data(const Assembler *assembler, const Line *line) {
                 }
 
                 // Save label(s) (before adding space)
-                if (labels[0][0] != '\0') {
+                if (label_count != 0) {
                     for (size_t i = 0; i < label_count; i++) {
-                        if (st_add_symbol(assembler->symbol_table, labels[i], assembler->data_list->data_offset, DATA, LOCAL) == 0) {
+                        if (st_add_symbol(assembler->symbol_table, labels[i].str, assembler->data_list->data_offset, DATA, LOCAL) == 0) {
                             free(argument);
                             return 0;
                         }
@@ -356,11 +344,10 @@ int read_data(const Assembler *assembler, const Line *line) {
                 else if (CURRENT_DIRECTIVE == STRING_NT) {
                     data.size = string_length+1;
                 }
-                if (process_data(&data, CURRENT_DIRECTIVE, argument) == 0) {
+                if (process_data(&data, CURRENT_DIRECTIVE, argument, assembler->symbol_table) == 0) {
                     free(argument);
                     return 0;
                 }
-
 
                 // Add any necessary padding
                 if (data_pad(data, assembler->data_list) == 0) {
@@ -369,9 +356,9 @@ int read_data(const Assembler *assembler, const Line *line) {
                 }
 
                 // Write the label(s)
-                if (labels[0][0] != '\0') {
+                if (label_count != 0) {
                     for (size_t i = 0; i < label_count; i++) {
-                        if (st_add_symbol(assembler->symbol_table, labels[i], assembler->data_list->data_offset, DATA, LOCAL) == 0) {
+                        if (st_add_symbol(assembler->symbol_table, labels[i].str, assembler->data_list->data_offset, DATA, LOCAL) == 0) {
                             free(argument);
                             return 0;
                         }
@@ -393,6 +380,10 @@ int read_data(const Assembler *assembler, const Line *line) {
 
     if (CURRENT_DIRECTIVE == ALIGN || CURRENT_DIRECTIVE == SPACE) CURRENT_DIRECTIVE = WORD; // .align and .space directives don't survive next line
 
+    for (size_t i = 0; i < label_count; i++) {
+        string_destroy(&labels[i]);
+    }
+
     free(argument);
 
     return 1;
@@ -410,9 +401,9 @@ uint32_t convert_instruction(const Instruction instruction, const Assembler* ass
         case R:
             return convert_rtype(instruction, instruction_desc);
         case I:
-            return convert_itype(instruction, assembler->symbol_table, assembler->relocation_table, instruction_desc, current_addr);
+            return convert_itype(instruction, assembler->relocation_table, instruction_desc, current_addr);
         case J:
-            return convert_jtype(instruction, assembler->symbol_table, assembler->relocation_table, instruction_desc, current_addr);
+            return convert_jtype(instruction, assembler->relocation_table, instruction_desc, current_addr);
         default:
             raise_error(NOERR, NULL, __FILE__);
             return -1;
@@ -447,15 +438,15 @@ int write_instruction_list(FILE *file, const Assembler *assembler) {
 /* === SECOND PASS DATA SEGMENT === */
 
 // Writes a Data structure to the file
-int write_data(FILE *file, Data data, const SymbolTable *symbol_table, RelocationTable *relocation_table, const uint32_t current_offset) {
+int write_data(FILE *file, Data data, RelocationTable *relocation_table, const uint32_t current_offset) {
     if (data.isSymbol) {
 
         // Requires R_32 relocation
-        Symbol *s = st_get_symbol_safe(symbol_table, data.value.symbol);
-        if (s == NULL) return 0;
+        Symbol *s = data.value.symbol;
         RelocationEntry reloc;
 
         switch (data.type) {
+            // TODO: byte and half
             case WORD: // What happens with .byte and .half?
                 data.value.word = 0;
                 re_init(&reloc, current_offset, DATA, R_32, s->name);
@@ -504,7 +495,7 @@ int write_data_list(FILE *file, Assembler *assembler) {
         const Data data = assembler->data_list->list[i];
         ERROR_HANDLER.line = data.line;
 
-        const int success = write_data(file, data, assembler->symbol_table, assembler->relocation_table, current_offset);
+        const int success = write_data(file, data, assembler->relocation_table, current_offset);
         if (success <= 0) return success;
         current_offset += data.size;
     }
@@ -614,12 +605,8 @@ int assembler_second_pass(Assembler *assembler, const char *output) {
         return 0;
     }
 
-    // === Write Header ===
-    struct FileHeader header;
-    header.text_size = assembler->instruction_list->text_offset;
-    header.data_size = assembler->data_list->data_offset;
-    header.entry = TEXT_START;
-    fwrite(&header, sizeof(header), 1, file);
+    // Move to end of header (written last)
+    fseek(file, sizeof(struct FileHeader), SEEK_SET);
 
     // === Write Instructions ===
     int success = write_instruction_list(file, assembler);
@@ -641,6 +628,13 @@ int assembler_second_pass(Assembler *assembler, const char *output) {
         return 0;
     }
 
+    // Init string table
+    StringTable strtab;
+    if (strtab_init(&strtab) == 0) return 0;
+    strtab_populate(&strtab, assembler->symbol_table);
+
+    // strtab_debug(&strtab);
+
     // === Write Relocation Table ===
     success = write_reloc_table(file, assembler->relocation_table);
     if (success == 0) {
@@ -651,7 +645,7 @@ int assembler_second_pass(Assembler *assembler, const char *output) {
         return 0;
     }
 
-    // === Write Symbol Table
+    // === Write Symbol Table ===
     success = write_symbol_table(file, assembler->symbol_table);
     if (success == 0) {
         if (ERROR_HANDLER.err_code == FILE_IO) {
@@ -660,6 +654,27 @@ int assembler_second_pass(Assembler *assembler, const char *output) {
         fclose(file);
         return 0;
     }
+
+    // === Write String Table ===
+    success = write_string_table(file, &strtab);
+    if (success == 0) {
+        if (ERROR_HANDLER.err_code == FILE_IO) {
+            raise_error(FILE_IO, output, __FILE__);
+        }
+        fclose(file);
+        return 0;
+    }
+    strtab_destroy(&strtab);
+
+    // === Write Header ===
+    rewind(file);
+    struct FileHeader header;
+    header.text_size = assembler->instruction_list->text_offset;
+    header.data_size = assembler->data_list->data_offset;
+    header.sym_size = assembler->symbol_table->size * SYMBOL_SIZE;
+    header.r_size = assembler->relocation_table->len * RE_SIZE;
+    header.entry = TEXT_START;
+    fwrite(&header, sizeof(header), 1, file);
 
     fclose(file);
     return 1;
@@ -700,6 +715,9 @@ int assemble(Text *preprocessed, const char *output) {
         return 0;
     }
 
+    // st_debug(assembler.symbol_table);
+    // rt_debug(assembler.relocation_table);
+
     assembler_destroy(&assembler);
     return 1;
 }
@@ -712,6 +730,7 @@ int assembler_init(Assembler *assembler, Text *preprocessed) {
     assembler->data_list = NULL;
     assembler->instruction_list = NULL;
     assembler->instruction_table = NULL;
+    assembler->relocation_table = NULL;
 
     // Initialize macro table
     MacroTable *macro_table = malloc(sizeof(MacroTable));

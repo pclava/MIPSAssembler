@@ -1,13 +1,15 @@
 #ifndef MIPS_ASSEMBLER_UTILS_H
 #define MIPS_ASSEMBLER_UTILS_H
+#include "strings.h"
+#include "symbol_table.h"
+#include "text.h"
+
 #include <stdint.h>
 #include <stdio.h>
-#include "text.h"
 
 /* === CONSTANTS === */
 #define MAX_5U 31
 #define MAX_6U 63
-#define SYMBOL_SIZE 32
 #define MNEMONIC_LENGTH 10
 
 #define TEXT_START 0x00400000
@@ -32,7 +34,8 @@ extern const char *REGISTERS[REGISTER_COUNT];
 struct FileHeader {
     uint32_t text_size; // Text segment, in bytes
     uint32_t data_size; // Data segment, in bytes
-    // Note that the size of the relocation table and symbol tables are not in the main header but the start of their respective sections
+    uint32_t sym_size;  // Symbol table, in bytes
+    uint32_t r_size;    // Relocation table, in bytes
     uint32_t entry;     // Used by executable
 };
 
@@ -81,7 +84,6 @@ typedef enum {
     SYMBOL_INV,  // Invalid symbol definition (object = symbol)
     ARG_INV,     // Invalid argument (object = argument)
     ARGS_INV,    // Instruction given invalid arguments (no object)
-    ST_SIZE_ERR, // Too many symbols in symbol table (object = symbol)
     DUPL_DEF,    // Token defined multiple times (object = token)
     SIZE_ERR,    // Token too large (object = token)
 
@@ -123,18 +125,24 @@ enum ImmType {
     NONE,
 };
 
-typedef struct {
+typedef struct Immediate Immediate;
+
+// Forward declaration
+typedef struct Symbol Symbol;
+typedef struct SymbolTable SymbolTable;
+
+struct Immediate {
     enum ImmType type;
     union {
         int32_t intValue;
-        char symbol[SYMBOL_SIZE];
+        Symbol *symbol;
     };
     unsigned char rgstr; // used by REG_OFFSET type
     unsigned char modifier; // 0 = none, 1 = hi, 2 = lo, 254 = macro argument, 255 = failure to parse
-} Immediate;
+};
 
 // Parses the string into an Immediate structure
-Immediate parse_imm(const char *str);
+Immediate parse_imm(const char *str, SymbolTable *symbol_table);
 
 size_t read_escape_sequence(const char *inp, char *res);
 

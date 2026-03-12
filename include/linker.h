@@ -4,7 +4,9 @@
 #include "symbol_table.h"
 #include "reloc_table.h"
 
-typedef struct {
+typedef struct SourceFile SourceFile;
+
+struct SourceFile {
     uint32_t text_offset;
     uint32_t data_offset;
     uint32_t text_size;
@@ -13,8 +15,9 @@ typedef struct {
     uint8_t *data;
     SymbolTable *symbol_table;
     RelocationTable *relocation_table;
+    char *string_table;
     char *name;
-} SourceFile;
+};
 
 int link(const char *out_path, char *object_files[], int file_count, const char *entry_symbol);
 

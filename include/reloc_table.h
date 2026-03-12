@@ -5,26 +5,30 @@
 
 /* === TYPES === */
 
-// Make packed to ensure constant size and offset between systems
-typedef struct __attribute__((packed)) {
-    // "address at (segment+target_offset) requires relocation of type (reloc_type) for the symbol (dependency)"
-    uint32_t target_offset;         // Instruction or data item that depends on relocation
-    char dependency[SYMBOL_SIZE];   // Symbol the target depends on
-    uint8_t segment;                // Segment (text or data). This is needed so the linker can determine the absolute address
-    uint8_t reloc_type;             // Type of relocation needed
-} RelocationEntry;
+typedef struct RelocationEntry RelocationEntry;
+typedef struct RelocationTable RelocationTable;
 
-typedef struct {
+#define RE_SIZE 10
+struct RelocationEntry {
+    // "address at (segment+target_offset) requires relocation of type (reloc_type) for the symbol (dependency)"
+    uint32_t target_offset;     // Instruction or data item that depends on relocation
+    uint32_t strtab_index;      // Byte offset in string table
+    String *dependency;         // Symbol the target depends on
+    uint8_t segment;            // Segment (text or data). This is needed so the linker can determine the absolute address
+    uint8_t reloc_type;         // Type of relocation needed
+};
+
+struct RelocationTable {
     RelocationEntry *list;
     size_t len;
     size_t cap;
-} RelocationTable;
+};
 
 /* === RELOCTABLE METHODS === */
 
 int rt_init(RelocationTable *table);
 
-int re_init(RelocationEntry *reloc, uint32_t offset, enum Segment segment, enum RelocType reloc_type, const char *dependency);
+int re_init(RelocationEntry *reloc, uint32_t offset, enum Segment segment, enum RelocType reloc_type, String *dependency);
 
 int rt_add(RelocationTable *table, RelocationEntry entry);
 
