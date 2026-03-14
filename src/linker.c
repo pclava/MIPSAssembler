@@ -211,8 +211,9 @@ int file_init(SourceFile *file, uint32_t text_offset, uint32_t data_offset) {
 // Opens object file, initializes mof_file
 FILE * open_object_file(const char *path, struct mof_header *final_header, struct mof_file *file) {
     // Open file
-    FILE *f = fopen(path, "rb");
+    FILE *f = fopen(path, "rb+");
     if (f == NULL) {
+        printf("fopen\n");
         raise_error(FILE_IO, path, __FILE__);
         return NULL;
     }
@@ -227,6 +228,7 @@ FILE * open_object_file(const char *path, struct mof_header *final_header, struc
 
     // Read binary
     if (fseek(f, 0, SEEK_END) != 0) {
+        printf("fseek\n");
         raise_error(FILE_IO, path, __FILE__);
         fclose(f);
         return NULL;
@@ -236,6 +238,7 @@ FILE * open_object_file(const char *path, struct mof_header *final_header, struc
 
     void *map = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fileno(f), 0);
     if (map == MAP_FAILED) {
+        printf("mmap\n");
         raise_error(FILE_IO, path, __FILE__);
         fclose(f);
         return NULL;
@@ -258,6 +261,7 @@ FILE * open_object_file(const char *path, struct mof_header *final_header, struc
 }
 
 int link(const char *out_path, char *object_files[], int file_count, const char *entry_symbol) {
+
     SourceFile source_files[file_count];
 
     SymbolTable global_symbols;

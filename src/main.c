@@ -74,11 +74,13 @@ int main(int argc, char *argv[]) {
 
         // Strip suffix from input path and add .o
         char *object_path = malloc(strlen(inp_path)+3);
+        char *p = strrchr(inp_path, '.');
         size_t j;
-        for (j = 0; j < strlen(inp_path); j++) {
-            if (inp_path[j] == '.' || inp_path[j] == '0') break;
-            object_path[j] = inp_path[j];
+        if (p == NULL) j = strlen(inp_path);
+        else {
+            j = (size_t) (p - inp_path);
         }
+        strncpy(object_path, inp_path, j);
         object_path[j++] = '.';
         object_path[j++] = 'o';
         object_path[j] = '\0';
