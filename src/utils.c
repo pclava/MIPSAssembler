@@ -4,7 +4,12 @@
 #include <ctype.h>
 #include <stddef.h>
 #include <string.h>
+
+#ifdef _WIN32
+#include "mman.h"
+#else
 #include <sys/mman.h>
+#endif
 
 const char *REGISTERS[REGISTER_COUNT] = {
     "$zero", "$at", "$v0", "$v1", "$a0", "$a1", "$a2", "$a3", "$t0", "$t1", "$t2", "$t3", "$t4", "$t5",
