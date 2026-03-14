@@ -3,7 +3,12 @@
 #include "utils.h"
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _WIN32
+#include "mman.h"
+#else
 #include <sys/mman.h>
+#endif
 
 static inline const char *get_string(const char *strtab, const uint32_t index) {
     return &strtab[index];
