@@ -447,9 +447,9 @@ int write_data(FILE *file, Data data, RelocationTable *relocation_table, const u
 
         switch (data.type) {
             // TODO: byte and half
-            case WORD: // What happens with .byte and .half?
+            case WORD:
                 data.value.word = 0;
-                re_init(&reloc, current_offset, DATA, R_32, s->name);
+                re_init(&reloc, s->index, current_offset, DATA, R_32);
                 break;
             default:
                 raise_error(ARGS_INV, NULL, __FILE__);
@@ -499,6 +499,13 @@ int write_data_list(FILE *file, Assembler *assembler) {
         if (success <= 0) return success;
         current_offset += data.size;
     }
+    // Add padding bytes until word-aligned
+    while (current_offset % 4 != 0) {
+        uint8_t x = 0;
+        fwrite(&x, sizeof(x), 1, file);
+        current_offset++;
+    }
+    assembler->data_list->data_offset = current_offset;
     return 1;
 }
 
@@ -507,7 +514,7 @@ int write_data_list(FILE *file, Assembler *assembler) {
 // Parses the output of the preprocessor into the symbol table, instruction list, and data list.
 int assembler_first_pass(Assembler *assembler) {
 
-    enum Segment current_segment = TEXT;
+    Segment current_segment = TEXT;
 
     // Loop through each individual line in the file
     Line *line = assembler->preprocessed->head;
@@ -606,7 +613,7 @@ int assembler_second_pass(Assembler *assembler, const char *output) {
     }
 
     // Move to end of header (written last)
-    fseek(file, sizeof(struct FileHeader), SEEK_SET);
+    fseek(file, sizeof(struct mof_header), SEEK_SET);
 
     // === Write Instructions ===
     int success = write_instruction_list(file, assembler);
@@ -628,13 +635,6 @@ int assembler_second_pass(Assembler *assembler, const char *output) {
         return 0;
     }
 
-    // Init string table
-    StringTable strtab;
-    if (strtab_init(&strtab) == 0) return 0;
-    strtab_populate(&strtab, assembler->symbol_table);
-
-    // strtab_debug(&strtab);
-
     // === Write Relocation Table ===
     success = write_reloc_table(file, assembler->relocation_table);
     if (success == 0) {
@@ -655,24 +655,16 @@ int assembler_second_pass(Assembler *assembler, const char *output) {
         return 0;
     }
 
-    // === Write String Table ===
-    success = write_string_table(file, &strtab);
-    if (success == 0) {
-        if (ERROR_HANDLER.err_code == FILE_IO) {
-            raise_error(FILE_IO, output, __FILE__);
-        }
-        fclose(file);
-        return 0;
-    }
-    strtab_destroy(&strtab);
+    // strtab_debug(assembler->symbol_table->string_table);
 
     // === Write Header ===
     rewind(file);
-    struct FileHeader header;
-    header.text_size = assembler->instruction_list->text_offset;
-    header.data_size = assembler->data_list->data_offset;
-    header.sym_size = assembler->symbol_table->size * SYMBOL_SIZE;
-    header.r_size = assembler->relocation_table->len * RE_SIZE;
+    struct mof_header header;
+    header.magic = MOF_MAGIC;
+    header.text = assembler->instruction_list->text_offset;
+    header.data = assembler->data_list->data_offset;
+    header.syms = assembler->symbol_table->size * MOF_SYMSIZE;
+    header.rels = assembler->relocation_table->len * MOF_RELOCSIZE;
     header.entry = TEXT_START;
     fwrite(&header, sizeof(header), 1, file);
 
@@ -838,7 +830,7 @@ void assembler_debug(const Assembler *assembler) {
     }
 
     if (assembler->relocation_table != NULL) {
-        rt_debug(assembler->relocation_table);
+        rt_debug(assembler->relocation_table, assembler->symbol_table);
     } else {
         printf("No relocation table found\n");
     }

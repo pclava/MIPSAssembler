@@ -3,6 +3,7 @@
 #include "strings.h"
 #include "symbol_table.h"
 #include "text.h"
+#include "mof.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -15,29 +16,12 @@
 #define TEXT_START 0x00400000
 #define DATA_START 0x10010000
 
-enum Segment { TEXT, DATA, UNDEF };
-
-enum Binding { LOCAL, GLOBAL };
-
-enum RelocType {
-    R_32,
-    R_26,
-    R_PC16,
-    R_HI16,
-    R_LO16
-};
-
 #define REGISTER_COUNT 32
 extern const char *REGISTERS[REGISTER_COUNT];
 
-// Used by both object and executable files
-struct FileHeader {
-    uint32_t text_size; // Text segment, in bytes
-    uint32_t data_size; // Data segment, in bytes
-    uint32_t sym_size;  // Symbol table, in bytes
-    uint32_t r_size;    // Relocation table, in bytes
-    uint32_t entry;     // Used by executable
-};
+typedef enum mof_binding Binding;
+typedef enum mof_segment Segment;
+typedef enum mof_reloctype RelocType;
 
 /* === FILE I/O === */
 
@@ -76,16 +60,17 @@ typedef enum {
     NOERR,
 
     // General errors
-    FILE_IO,     // Failure to open, write, or read a file (object = filename)
-    MEM,         // Memory error
+    FILE_IO,        // Failure to open, write, or read a file (object = filename)
+    MEM,            // Memory error
+    BAD_FILE,       // Invalid file format
 
     // Assembler errors
-    TOKEN_ERR,   // Unrecognized token (object = token)
-    SYMBOL_INV,  // Invalid symbol definition (object = symbol)
-    ARG_INV,     // Invalid argument (object = argument)
-    ARGS_INV,    // Instruction given invalid arguments (no object)
-    DUPL_DEF,    // Token defined multiple times (object = token)
-    SIZE_ERR,    // Token too large (object = token)
+    TOKEN_ERR,      // Unrecognized token (object = token)
+    SYMBOL_INV,     // Invalid symbol definition (object = symbol)
+    ARG_INV,        // Invalid argument (object = argument)
+    ARGS_INV,       // Instruction given invalid arguments (no object)
+    DUPL_DEF,       // Token defined multiple times (object = token)
+    SIZE_ERR,       // Token too large (object = token)
 
 } errcode;
 
@@ -128,7 +113,7 @@ enum ImmType {
 typedef struct Immediate Immediate;
 
 // Forward declaration
-typedef struct Symbol Symbol;
+typedef struct mof_symbol Symbol;
 typedef struct SymbolTable SymbolTable;
 
 struct Immediate {

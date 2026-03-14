@@ -90,6 +90,7 @@ int byte(Data * data, const char * str, SymbolTable *symbol_table) {
 // Note that strings have an initial " to differentiate from other arguments
 // The final " will have been stripped during parsing
 int string(Data * data, const char * str, SymbolTable *symbol_table) {
+    (void)symbol_table; // to suppress unused parameter warning
     // assumes caller has filled in the size
     if (str[0] != '\"') {
         raise_error(ARG_INV, str, __FILE__);
@@ -103,6 +104,7 @@ int string(Data * data, const char * str, SymbolTable *symbol_table) {
 }
 
 int string_nt(Data * data, const char *str, SymbolTable *symbol_table) {
+    (void)symbol_table; // to suppress unused parameter warning
     // assumes caller has filled in the size
     if (str[0] != '\"') {
         raise_error(ARG_INV, str, __FILE__);

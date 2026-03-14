@@ -29,7 +29,6 @@ int string_init(String *str) {
     memset(str->str, '\0', STRING_INIT);
     str->cap = STRING_INIT;
     str->len = 0;
-    str->offset = -1;
 
     return 1;
 }
@@ -81,14 +80,17 @@ int string_write(String *str, FILE *file) {
     return 1;
 }
 
+char *strtab_get(const StringTable *table, uint32_t index) {
+    return &table->table[index];
+}
+
 int strtab_init(StringTable *table) {
-    table->table = malloc(SYMBOL_TABLE_SIZE * sizeof(String *));
+    table->table = malloc(SYMBOL_TABLE_SIZE * sizeof(char));
     if (table->table == NULL) {
         raise_error(MEM, NULL, __FILE__);
         return 0;
     }
     table->cap = SYMBOL_TABLE_SIZE;
-    table->len = 0;
     table->size = 0;
     return 1;
 }
@@ -99,52 +101,49 @@ void strtab_destroy(StringTable *table) {
 }
 
 // Returns byte offset in final string table
-size_t strtab_add(StringTable *table, String *str) {
-
-    // Check size
-    if (table->size >= table->cap) {
-        table->cap *= 2;
-        String **new = realloc(table->table, table->cap * sizeof(String *));
+uint32_t strtab_add(StringTable *table, const char *str) {
+    uint32_t len = (uint32_t) strlen(str);
+    if (table->size + len + 1 > table->cap) {
+        table->cap = table->size+len+1 > 2*table->cap ? table->size+len+1 : 2*table->cap;
+        char *new = realloc(table->table, table->cap * sizeof(char));
         if (new == NULL) {
             raise_error(MEM, NULL, __FILE__);
             return 0;
         }
         table->table = new;
+        memset(&table->table[table->size], '\0', table->cap - table->size); // zero out rest of table
     }
 
-    table->table[table->len] = str;
-    table->len++;
-    const size_t old = table->size;
-    table->size += str->len+1;
+    const uint32_t old = table->size;
+    strcpy(&table->table[old], str);
+    table->size += len+1;
     return old;
 }
 
-void strtab_populate(StringTable *table, SymbolTable *symbol_table) {
-    // Loop through symbol table
-    for (size_t i = 0; i < SYMBOL_TABLE_SIZE; i++) {
-        SymbolBucket *cur = symbol_table->buckets[i];
-        while (cur != NULL) {
-            uint32_t offset = strtab_add(table, cur->item.name);
-            cur->item.strtab_index = offset;
-            cur->item.name->offset = offset;
-            cur = cur->next;
-        }
-    }
-}
-
 int write_string_table(FILE *file, const StringTable *table) {
-    write_word(file, table->size);
-    for (size_t i = 0; i < table->len; i++) {
-        // Write string to file
-        if (string_write(table->table[i], file) == 0) return 0;
+    if (fwrite(table->table, sizeof(char), table->size, file) != table->size) {
+        ERROR_HANDLER.err_code = FILE_IO;
+        return 0;
     }
     return 1;
 }
 
 void strtab_debug(const StringTable *table) {
-    size_t j = 0;
-    for (size_t i = 0; i < table->len; i++) {
-        printf("0x%.2lx: %s\n", j, table->table[i]->str);
-        j+=table->table[i]->len+1;
+    for (uint32_t i = 0; i < table->size; i++) {
+        if (table->table[i] == '\0') printf("\n0x%.2x: ", i+1);
+        else {
+            if (i == 0) printf("0x00: ");
+            printf("%c", table->table[i]);
+        }
+    }
+}
+
+void strtab_debug2(const char *strtab, uint32_t size) {
+    for (uint32_t i = 0; i < size; i++) {
+        if (strtab[i] == '\0') printf("\n0x%.2x: ", i+1);
+        else {
+            if (i == 0) printf("0x00: ");
+            printf("%c", strtab[i]);
+        }
     }
 }

@@ -16,7 +16,7 @@ struct Instruction {
 struct InstructionList {
     size_t len;
     size_t cap;
-    uint32_t text_offset;
+    uint32_t text_offset; // size of text segment in bytes
     Instruction *list;
 };
 

@@ -5,6 +5,7 @@
 #include "assembler.h"
 #include "preprocess.h"
 #include "linker.h"
+#include "utils.h"
 
 /*
  USAGE:
@@ -134,6 +135,8 @@ int main(int argc, char *argv[]) {
         free(object_files[i]);
     }
     free(in_files);
+
+    // debug_binary("heap_demo.out");
 
     return 0;
 }

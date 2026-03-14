@@ -1,12 +1,10 @@
 #include "utils.h"
 
-#include "symbol_table.h"
-#include "reloc_table.h"
-
 #include <stdlib.h>
 #include <ctype.h>
 #include <stddef.h>
 #include <string.h>
+#include <sys/mman.h>
 
 const char *REGISTERS[REGISTER_COUNT] = {
     "$zero", "$at", "$v0", "$v1", "$a0", "$a1", "$a2", "$a3", "$t0", "$t1", "$t2", "$t3", "$t4", "$t5",
@@ -271,7 +269,7 @@ void error(void) {
     }
 
     // General error
-    if (ERROR_HANDLER.err_code >= 1 && ERROR_HANDLER.err_code <= 2) {
+    if (ERROR_HANDLER.err_code >= 1 && ERROR_HANDLER.err_code <= 3) {
         if (ERROR_HANDLER.file == NULL) {
             fprintf(stderr, "An error occured\n");
             return;
@@ -280,7 +278,7 @@ void error(void) {
     }
 
     // Assembler error
-    if (ERROR_HANDLER.err_code > 2) {
+    if (ERROR_HANDLER.err_code > 3) {
         if (ERROR_HANDLER.line == NULL) {
             fprintf(stderr, "An error occured\n");
             return;
@@ -302,7 +300,10 @@ void general_error(const errcode code, const char *file, const char * object) {
             fprintf(stderr, "-> could not access file \"%s\"\n", object);
             break;
         case MEM:
-            fprintf(stderr, "-> could not allocate memory\n");
+            fprintf(stderr, "-> memory error\n");
+            break;
+        case BAD_FILE:
+            fprintf(stderr, "-> File \"%s\" has invalid format\n", object);
             break;
         case NOERR:
             fprintf(stderr, "-> an error occurred\n");
@@ -571,4 +572,82 @@ unsigned char get_register(const char *token) {
 // Returns whether c is a valid symbol character
 int is_symbol(char c) {
     return isalnum(c) || c == '_' || c == '$' || c == '.';
+}
+
+void debug_binary(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) {
+        printf("Could not open file\n");
+        return;
+    }
+
+    struct mof_file file;
+    mof_read_header(f, &file.hdr);
+    if (!mof_is_valid(&file.hdr)) {
+        printf("Invalid file\n");
+        fclose(f);
+        return;
+    }
+
+    // Read binary
+    if (fseek(f, 0, SEEK_END) != 0) {
+        printf("Could not read file\n");
+        fclose(f);
+        return;
+    }
+    const long size = ftell(f); // get file size
+    rewind(f);
+
+    void *map = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fileno(f), 0);
+    if (map == MAP_FAILED) {
+        printf("Could not read file\n");
+        fclose(f);
+        return;
+    }
+    fclose(f);
+    file.file = map;
+    file.text = mof_text(file.file);
+    file.data = mof_data(file.file, &file.hdr);
+    file.relocs = mof_relocs(file.file, &file.hdr);
+    file.syms = mof_symbols(file.file, &file.hdr);
+    file.strings = mof_strtab(file.file, &file.hdr);
+
+    printf("MOF file: text %u bytes, data %u bytes, relocation %u bytes, symbols %u bytes\n", file.hdr.text, file.hdr.data, file.hdr.rels, file.hdr.syms);
+    printf("Program entry: 0x%.8x\n", file.hdr.entry);
+
+    for (uint32_t i = 0; i < file.hdr.text/4; i++) {
+        printf("0x%.8x: instruction 0x%.8x\n", TEXT_START+ i*4, file.text[i]);
+    }
+    for (uint32_t i = 0; i < file.hdr.data; i++) {
+        if (i % 4 == 3) {
+            printf("%.2x\n0x%.8x: data ", file.data[i], DATA_START + i);
+        } else {
+            printf("%.2x ", file.data[i]);
+        }
+    }
+    for (uint32_t i = 0; i < file.hdr.rels/MOF_RELOCSIZE; i++) {
+        struct mof_relocation reloc = file.relocs[i];
+        const char *dependency = &file.strings[reloc.index];
+        char segment[6];
+        if (reloc.segment == TEXT) {
+            strcpy(segment, ".text");
+        } else {
+            strcpy(segment, ".data");
+        }
+        printf("address at %s+%d needs relocation of type %d for symbol %s\n", segment, reloc.offset, reloc.type, dependency);
+    }
+    for (uint32_t i = 0; i < file.hdr.syms/MOF_SYMSIZE; i++) {
+        struct mof_symbol sym = file.syms[i];
+        const char *name = &file.strings[sym.index];
+        if (sym.segment == TEXT)
+            printf("%s: .text + %d, binding %d\n", name, sym.offset, sym.binding);
+        else if (sym.segment == DATA)
+            printf("%s: .data + %d, binding %d\n", name, sym.offset, sym.binding);
+        else if (sym.segment == UNDEF)
+            printf("%s: undefined, binding %d\n", name, sym.binding);
+    }
+
+    strtab_debug2(file.strings, size - MOF_STROFF(&file.hdr));
+
+    munmap(file.file, size);
 }

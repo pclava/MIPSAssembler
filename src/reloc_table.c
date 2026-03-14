@@ -1,4 +1,6 @@
 #include "reloc_table.h"
+#include "symbol_table.h"
+#include "strings.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -21,12 +23,11 @@ int rt_init(RelocationTable *table) {
 }
 
 // Initializes a RelocationEntry
-int re_init(RelocationEntry *reloc, uint32_t offset, enum Segment segment, enum RelocType reloc_type, String *dependency) {
-    reloc->target_offset = offset;
-    reloc->reloc_type = reloc_type;
+int re_init(RelocationEntry *reloc, uint32_t index, uint32_t offset, Segment segment, RelocType type) {
+    reloc->offset = offset;
+    reloc->type = type;
     reloc->segment = segment;
-    reloc->dependency = dependency;
-    reloc->strtab_index = -1;
+    reloc->index = index;
     return 1;
 }
 
@@ -48,13 +49,14 @@ void rt_destroy(const RelocationTable *table) {
     free(table->list);
 }
 
-void rt_debug(const RelocationTable *table) {
+void rt_debug(const RelocationTable *table, const SymbolTable *symbol_table) {
     for (size_t i = 0; i < table->len; i++) {
-        re_debug(table->list[i]);
+        const char *name = strtab_get(symbol_table->string_table, table->list[i].index);
+        re_debug(table->list[i], name);
     }
 }
 
-void re_debug(const RelocationEntry entry) {
+void re_debug(const RelocationEntry entry, const char *dependency) {
     char segment[6];
     if (entry.segment == TEXT) {
         strcpy(segment, ".text");
@@ -62,23 +64,17 @@ void re_debug(const RelocationEntry entry) {
         strcpy(segment, ".data");
     }
 
-    printf("address at %s+%d needs relocation of type %d for symbol %s\n", segment, entry.target_offset, entry.reloc_type, entry.dependency->str);
+    printf("address at %s+%d needs relocation of type %d for symbol %s\n", segment, entry.offset, entry.type, dependency);
 }
 
 int write_reloc_table(FILE *file, const RelocationTable *table) {
-    write_word(file, table->len);
     for (size_t i = 0; i < table->len; i++) {
-        const RelocationEntry *entry = &table->list[i];
+        const struct mof_relocation entry = table->list[i];
 
-        if (fwrite(&entry->dependency->offset, sizeof(entry->dependency->offset), 1, file) != 1) goto file_err;
-        if (fwrite(&entry->target_offset, sizeof(entry->target_offset), 1, file) != 1) goto file_err;
-        if (fwrite(&entry->segment, sizeof(entry->segment), 1, file) != 1) goto file_err;
-        if (fwrite(&entry->reloc_type, sizeof(entry->reloc_type), 1, file) != 1) goto file_err;
-        continue;
-
-        file_err:
-        ERROR_HANDLER.err_code = FILE_IO;
-        return 0;
+        if (mof_write_relocation(file, &entry) == 0) {
+            ERROR_HANDLER.err_code = FILE_IO;
+            return 0;
+        }
     }
     return 1;
 }
