@@ -3,6 +3,10 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * MIPS OBJECT FILE
  *
@@ -108,5 +112,9 @@ int mof_write_header(FILE *file, struct mof_header *hdr);
 // Write relocation entry or symbol to file
 int mof_write_relocation(FILE *file, const struct mof_relocation *reloc);
 int mof_write_symbol(FILE *file, const struct mof_symbol *sym);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //MOF_H

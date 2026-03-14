@@ -213,7 +213,6 @@ FILE * open_object_file(const char *path, struct mof_header *final_header, struc
     // Open file
     FILE *f = fopen(path, "rb+");
     if (f == NULL) {
-        printf("fopen\n");
         raise_error(FILE_IO, path, __FILE__);
         return NULL;
     }
@@ -228,7 +227,6 @@ FILE * open_object_file(const char *path, struct mof_header *final_header, struc
 
     // Read binary
     if (fseek(f, 0, SEEK_END) != 0) {
-        printf("fseek\n");
         raise_error(FILE_IO, path, __FILE__);
         fclose(f);
         return NULL;
@@ -238,7 +236,6 @@ FILE * open_object_file(const char *path, struct mof_header *final_header, struc
 
     void *map = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fileno(f), 0);
     if (map == MAP_FAILED) {
-        printf("mmap\n");
         raise_error(FILE_IO, path, __FILE__);
         fclose(f);
         return NULL;
