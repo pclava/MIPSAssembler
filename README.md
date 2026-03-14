@@ -4,46 +4,7 @@ An assembler and linker for a subset of the MIPS instruction set, written in C. 
 The program consists of a preprocessor, assembler, and linker. It can assemble and link multiple files into an executable, or just assemble them into individual object files.
 The executables can be run by my MIPS emulator at https://github.com/pclava/MIPSEmulator.
 
-The executable has the following format:
-```
-* Header
-  - 4 bytes: Text size (in bytes)
-  - 4 bytes: Data size (in bytes)
-  - 4 bytes: Symbol table size (in bytes) (ignored)
-  - 4 bytes: Relocation table size (in bytes) (ignored)
-  - 4 bytes: Program entry (32-bit memory address)
-* Text segment
-* Data segment
-```
-
-Object files have the following format:
-```
-* Header
-  - 4 bytes: Text size (in bytes)
-  - 4 bytes: Data size (in bytes)
-  - 4 bytes: Symbol table size (in bytes)
-  - 4 bytes: Relocation table size (in bytes)
-  - 4 bytes: Program entry (32-bit memory address) (ignored)
-* Text segment
-* Data segment
-* Relocation table
-  - 4 bytes: number of entries
-  - Each entry is 10 bytes:
-    - 4 bytes: offset in string table
-    - 4 bytes: address needing relocation
-    - 1 byte: segment of relocation
-    - 1 byte: relocation type
-* Symbol table
-  - 4 bytes: number of entries
-  - Each entry is 10 bytes:
-    - 4 bytes: offset in string table
-    - 4 bytes: address offset in segment
-    - 1 byte: segment
-    - 1 byte: binding
-* String table
-  - 4 bytes: size in bytes
-  - ...
-```
+The object and executable files use the MOF format specified in `include/mof.h`. This is a minimal executable and linkable format written for this assembler and linker.
 
 The particular details of the MIPS instruction set were sourced from _MIPS Assembly Language Programmer's Guide_ (Silicon Graphics, 1992) and _The MIPS32® Instruction Set Manual_ (MIPS Technologies, 2016). 
 Some example assembly files and their outputs can be found in `examples/`.

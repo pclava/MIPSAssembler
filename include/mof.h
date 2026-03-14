@@ -7,7 +7,7 @@
  * MIPS OBJECT FILE
  *
  * Minimal executable and linkable format for this assembler, linker, and emulator toolchain
- * Stores data little-endian
+ * File is stored little-endian
  *
  * HEADER (24 bytes)
  * TEXT
