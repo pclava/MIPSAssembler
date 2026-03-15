@@ -1,4 +1,5 @@
 #include "symbol_table.h"
+#include "utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,6 +14,7 @@ The second pass consults the symbol table when an instruction refers to a symbol
 Implemented as a hash table
 */
 
+// Returns the string associated with the symbol
 char * st_get_string(const SymbolTable *table, const Symbol symbol) {
     return strtab_get(table->string_table, symbol.index);
 }
@@ -194,4 +196,26 @@ int write_symbol_table(FILE *file, const SymbolTable *table) {
     }
     write_string_table(file, table->string_table);
     return 1;
+}
+
+void st_dump(const SymbolTable *t, const char *path) {
+    FILE *f = fopen(path, "w");
+    if (f == NULL) {
+        fprintf(stderr, "Could not open %s\n", path);
+        return;
+    }
+
+    // TEXT, DATA, UNDEF
+    // LOCAL, GLOBAL
+    char types[] = "tTdDuU";
+
+    for (size_t i = 0; i < SYMBOL_TABLE_SIZE; i++) {
+        const SymbolBucket *cur = t->buckets[i];
+        while (cur != NULL) {
+            const struct mof_symbol s = cur->item;
+            fprintf(f, "0x%.8x %c %s\n", s.offset, types[s.segment+s.binding], st_get_string(t, s));
+            cur = cur->next;
+        }
+    }
+    fclose(f);
 }

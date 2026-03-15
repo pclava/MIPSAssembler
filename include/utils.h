@@ -1,6 +1,5 @@
 #ifndef MIPS_ASSEMBLER_UTILS_H
 #define MIPS_ASSEMBLER_UTILS_H
-#include "strings.h"
 #include "symbol_table.h"
 #include "text.h"
 #include "mof.h"

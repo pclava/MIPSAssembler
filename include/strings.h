@@ -1,17 +1,13 @@
 #ifndef MIPS_ASSEMBLER_STRINGS_H
 #define MIPS_ASSEMBLER_STRINGS_H
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
-
-#include "symbol_table.h"
 
 #define STRING_INIT 32
 
 typedef struct String String;
 typedef struct StringTable StringTable;
-
-// Forward declaration
-typedef struct SymbolTable SymbolTable;
 
 struct String {
     char *str;

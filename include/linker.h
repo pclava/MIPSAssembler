@@ -14,6 +14,14 @@ struct SourceFile {
     struct mof_file file;
 };
 
-int link(const char *out_path, char *object_files[], int file_count, const char *entry_symbol);
+struct linker_settings {
+    int clean;
+    int link_start;
+    char *dump_symbols;
+    char *out_path;
+    char *entry;
+};
+
+int link(char *object_files[], int file_count, struct linker_settings settings);
 
 #endif //MIPS_ASSEMBLER_LINKER_H

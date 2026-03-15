@@ -3,12 +3,19 @@ IDIR=include
 CFLAGS=-Wall -Wextra -I$(IDIR) -g
 
 SRC := $(wildcard src/*.c)
+SRC := $(filter-out src/linker.c, $(SRC))
 OBJ := $(SRC:.c=.o)
 
-all: MIPSAssembler
+LINKER_SRC := src/linker.c src/mof.c src/symbol_table.c src/strings.c src/utils.c src/text.c
+LINKER_OBJ := $(LINKER_SRC:.c=.o)
+
+all: MIPSAssembler MIPSLinker
 
 MIPSAssembler: $(OBJ)
 	$(CC) $(OBJ) -o MIPSAssembler
+
+MIPSLinker: $(LINKER_OBJ)
+	$(CC) $(LINKER_OBJ) -o MIPSLinker
 
 src/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@

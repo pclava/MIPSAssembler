@@ -2,8 +2,8 @@
 #define MIPS_ASSEMBLER_SYMBOL_TABLE_H
 #include <stdint.h>
 
-#include "utils.h"
 #include "mof.h"
+#include "strings.h"
 
 #define SYMBOL_TABLE_SIZE 256
 
@@ -51,5 +51,7 @@ void st_destroy(const SymbolTable *t);
 void st_debug(const SymbolTable *t);
 
 int write_symbol_table(FILE *file, const SymbolTable *t);
+
+void st_dump(const SymbolTable *t, const char *path);
 
 #endif //MIPS_ASSEMBLER_SYMBOL_TABLE_H

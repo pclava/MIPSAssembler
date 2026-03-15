@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "symbol_table.h"
+#include "utils.h"
 
 /* === TYPES === */
 
