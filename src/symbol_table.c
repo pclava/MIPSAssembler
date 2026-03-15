@@ -213,7 +213,7 @@ void st_dump(const SymbolTable *t, const char *path) {
         const SymbolBucket *cur = t->buckets[i];
         while (cur != NULL) {
             const struct mof_symbol s = cur->item;
-            fprintf(f, "0x%.8x %c %s\n", s.offset, types[s.segment+s.binding], st_get_string(t, s));
+            fprintf(f, "0x%.8x %c %s\n", s.offset, types[2*s.segment+s.binding], st_get_string(t, s));
             cur = cur->next;
         }
     }
