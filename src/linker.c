@@ -441,6 +441,8 @@ int main(int argc, char *argv[]) {
                         options.entry = start_sym;
                         break;
                     }
+                    fprintf(stderr, "error in %s: skipping unrecognized option %s\n", __FILE__, argv[i]); // to avoid gcc's "this statement may fall through" warning
+                    break;
                 default:
                     fprintf(stderr, "error in %s: skipping unrecognized option %s\n", __FILE__, argv[i]);
             }
