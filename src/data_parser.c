@@ -12,19 +12,19 @@ These functions handle everything related to the data segment, namely the DataLi
 and the parsing of tokens into the correct data type.
 */
 
-int word(Data * data, const char * str) {
+int word(Data *data, const char * str, SymbolTable *symbol_table) {
     data->size = 4;
     data->type = WORD;
     data->isSymbol = 0;
 
-    Immediate imm = parse_imm(str);
+    Immediate imm = parse_imm(str, symbol_table);
     if (imm.modifier == 255) {
         return 0;
     }
 
     if (imm.type == SYMBOL) {
         data->isSymbol = 1;
-        strcpy(data->value.symbol, str);
+        data->value.symbol = imm.symbol;
         return 1;
     }
 
@@ -37,19 +37,19 @@ int word(Data * data, const char * str) {
     return 1;
 }
 
-int half(Data * data, const char * str) {
+int half(Data * data, const char * str, SymbolTable *symbol_table) {
     data->size = 2;
     data->isSymbol = 0;
     data->type = HALF;
 
-    Immediate imm = parse_imm(str);
+    Immediate imm = parse_imm(str, symbol_table);
     if (imm.modifier == 255) {
         return 0;
     }
 
     if (imm.type == SYMBOL) {
         data->isSymbol = 1;
-        strcpy(data->value.symbol, str);
+        data->value.symbol = imm.symbol;
         return 1;
     }
 
@@ -62,19 +62,19 @@ int half(Data * data, const char * str) {
     return 1;
 }
 
-int byte(Data * data, const char * str) {
+int byte(Data * data, const char * str, SymbolTable *symbol_table) {
     data->size = 1;
     data->isSymbol = 0;
     data->type = BYTE;
 
-    Immediate imm = parse_imm(str);
+    Immediate imm = parse_imm(str, symbol_table);
     if (imm.modifier == 255) {
         return 0;
     }
 
     if (imm.type == SYMBOL) {
         data->isSymbol = 1;
-        strcpy(data->value.symbol, str);
+        data->value.symbol = imm.symbol;
         return 1;
     }
 
@@ -89,7 +89,8 @@ int byte(Data * data, const char * str) {
 
 // Note that strings have an initial " to differentiate from other arguments
 // The final " will have been stripped during parsing
-int string(Data * data, const char * str) {
+int string(Data * data, const char * str, SymbolTable *symbol_table) {
+    (void)symbol_table; // to suppress unused parameter warning
     // assumes caller has filled in the size
     if (str[0] != '\"') {
         raise_error(ARG_INV, str, __FILE__);
@@ -102,7 +103,8 @@ int string(Data * data, const char * str) {
     return 1;
 }
 
-int string_nt(Data * data, const char *str) {
+int string_nt(Data * data, const char *str, SymbolTable *symbol_table) {
+    (void)symbol_table; // to suppress unused parameter warning
     // assumes caller has filled in the size
     if (str[0] != '\"') {
         raise_error(ARG_INV, str, __FILE__);
@@ -115,13 +117,13 @@ int string_nt(Data * data, const char *str) {
     return 1;
 }
 
-int (*PROCESS_DATA[5])(Data *, const char *) = {
+int (*PROCESS_DATA[5])(Data *, const char *, SymbolTable *) = {
     &word, &half, &byte, &string, &string_nt
 };
 
 // Parses a string into the Data structure depending on its type
-int process_data(Data * data, const enum DataType data_type, const char * str) {
-    return PROCESS_DATA[data_type](data, str);
+int process_data(Data * data, const enum DataType data_type, const char * str, SymbolTable *symbol_table) {
+    return PROCESS_DATA[data_type](data, str, symbol_table);
 }
 
 // Initialize a DataList with data addresses beginning at 'entry'

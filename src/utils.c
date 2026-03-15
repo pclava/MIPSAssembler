@@ -1,12 +1,15 @@
 #include "utils.h"
 
-#include "symbol_table.h"
-#include "reloc_table.h"
-
 #include <stdlib.h>
 #include <ctype.h>
 #include <stddef.h>
 #include <string.h>
+
+#ifdef _WIN32
+#include "mman.h"
+#else
+#include <sys/mman.h>
+#endif
 
 const char *REGISTERS[REGISTER_COUNT] = {
     "$zero", "$at", "$v0", "$v1", "$a0", "$a1", "$a2", "$a3", "$t0", "$t1", "$t2", "$t3", "$t4", "$t5",
@@ -17,7 +20,7 @@ const char *REGISTERS[REGISTER_COUNT] = {
 // reads an immediate of the form %OPERATOR(SYMBOL)
 // where OPERATOR can be hi or lo
 // fills given Imm pointer and returns pointer to end of expression
-const char * read_operator(Immediate * imm, const char *str) {
+const char * read_operator(Immediate * imm, const char *str, SymbolTable * symbol_table) {
     imm->modifier = 0;
     imm->type = SYMBOL;
 
@@ -43,34 +46,41 @@ const char * read_operator(Immediate * imm, const char *str) {
     }
 
     // Read symbol until close parenthesis
-    char symbol[SYMBOL_SIZE];
-    memset(symbol, 0, sizeof(symbol));
+    String *string = malloc(sizeof(Symbol));
+    if (string_init(string) == 0) return NULL;
+
     i = 0;
     while (i < 31 && str[j] != ')' && str[j] != '\0') {
-        symbol[i++] = str[j++];
+        string_insert(string, i++, str[j++]);
     }
     if (*str == '\0' || i == 31) {
         raise_error(ARG_INV, str, __FILE__);
         return NULL;
     }
 
-    strcpy(imm->symbol, symbol);
+    // Get symbol
+    if (st_exists(symbol_table, string->str) == SYMBOL_TABLE_SIZE) {
+        if (st_add_symbol(symbol_table, string->str, 0, UNDEF, LOCAL) == 0) return 0;
+    }
+    Symbol *s = st_get_symbol(symbol_table, string->str);
+
+    imm->symbol = s;
+    string_destroy(string);
     return &str[++j];
 }
 
 // Parses a string into an Immediate struct
-Immediate parse_imm(const char * str) {
+Immediate parse_imm(const char * str, SymbolTable *symbol_table) {
     Immediate imm;
     imm.modifier = 0;
     imm.type = NONE;
     imm.intValue = 0;
     imm.rgstr = 0;
-    const size_t len = strlen(str);
 
     const char *endptr;
 
     if (str[0] == '%') {
-        endptr = read_operator(&imm, str);
+        endptr = read_operator(&imm, str, symbol_table);
         if (endptr == NULL) {
             imm.modifier = 255;
             return imm;
@@ -141,13 +151,14 @@ Immediate parse_imm(const char * str) {
 
     // SYMBOL
     else {
-        if (len >= SYMBOL_SIZE) {
-            raise_error(ARG_INV, str, __FILE__);
-            imm.modifier = 255;
-            return imm;
+        // Finds the symbol or adds it if not found
+        if (st_exists(symbol_table, str) == SYMBOL_TABLE_SIZE) {
+            // Doesn't exist yet, add as local undefined. may be made global later
+            st_add_symbol(symbol_table, str, 0, UNDEF, LOCAL);
         }
+        Symbol *s = st_get_symbol(symbol_table, str);
 
-        strcpy(imm.symbol, str);
+        imm.symbol = s;
         imm.type = SYMBOL;
         return imm;
     }
@@ -263,7 +274,7 @@ void error(void) {
     }
 
     // General error
-    if (ERROR_HANDLER.err_code >= 1 && ERROR_HANDLER.err_code <= 2) {
+    if (ERROR_HANDLER.err_code >= 1 && ERROR_HANDLER.err_code <= 3) {
         if (ERROR_HANDLER.file == NULL) {
             fprintf(stderr, "An error occured\n");
             return;
@@ -272,7 +283,7 @@ void error(void) {
     }
 
     // Assembler error
-    if (ERROR_HANDLER.err_code > 2) {
+    if (ERROR_HANDLER.err_code > 3) {
         if (ERROR_HANDLER.line == NULL) {
             fprintf(stderr, "An error occured\n");
             return;
@@ -294,7 +305,10 @@ void general_error(const errcode code, const char *file, const char * object) {
             fprintf(stderr, "-> could not access file \"%s\"\n", object);
             break;
         case MEM:
-            fprintf(stderr, "-> could not allocate memory\n");
+            fprintf(stderr, "-> memory error\n");
+            break;
+        case BAD_FILE:
+            fprintf(stderr, "-> File \"%s\" has invalid format\n", object);
             break;
         case NOERR:
             fprintf(stderr, "-> an error occurred\n");
@@ -312,16 +326,13 @@ void assembler_error(const errcode code, const Line *line, const char * object) 
             break;
         case SYMBOL_INV:
             fprintf(stderr, "-> invalid symbol definition \"%s\"\n    ", object);
-            fprintf(stderr, "-> symbols must be between 1 and %d characters long and must be alphanumeric\n", SYMBOL_SIZE-1);
+            fprintf(stderr, "-> symbols can only contain alphanumeric including ._$ and cannot begin with a number\n");
             break;
         case ARG_INV:
             fprintf(stderr, "-> invalid argument \"%s\"\n", object);
             break;
         case ARGS_INV:
             fprintf(stderr, "-> invalid arguments to instruction or directive\n");
-            break;
-        case ST_SIZE_ERR:
-            fprintf(stderr, "-> too many symbols, could not save symbol \"%s\"\n    -> the assembler supports up to 256 symbols\n", object);
             break;
         case DUPL_DEF:
             fprintf(stderr, "-> token \"%s\" already defined\n", object);
@@ -563,66 +574,85 @@ unsigned char get_register(const char *token) {
     return (unsigned char) n;
 }
 
-void debug_binary(const char *name) {
-    FILE *file = fopen(name, "rb");
-    struct FileHeader header;
-    fread(&header, sizeof(header), 1, file);
-    printf("text size: %d\n", header.text_size);
-    printf("data size: %d\n", header.data_size);
-    printf("entry: %d\n", header.entry);
-
-    printf("\n");
-    for (size_t i = 0; i < header.text_size/4; i++) {
-        uint32_t text = read_word(file);
-        printf("instruction: 0x%.8x\n", text);
-    }
-
-    printf("\n");
-    for (size_t i = 0; i < header.data_size; i++) {
-        unsigned char c = read_byte(file);
-        printf("byte: 0x%.2x (%c)\n", c, c);
-    }
-
-    printf("\n");
-    uint32_t rlc_size = read_word(file);
-    for (size_t i = 0; i < rlc_size; i++) {
-        RelocationEntry entry;
-        fread(&entry, sizeof(RelocationEntry), 1, file);
-        char s[6];
-        if (entry.segment == TEXT)
-            strcpy(s, ".text");
-        else if (entry.segment == DATA)
-            strcpy(s, ".data");
-
-        printf("address at %s+%d needs relocation of type %d for symbol %s\n", s, entry.target_offset, entry.reloc_type, entry.dependency);
-    }
-
-    printf("\n");
-    uint32_t sym_size = read_word(file);
-    for (size_t i = 0; i < sym_size; i++) {
-        char sym_name[SYMBOL_SIZE];
-        uint32_t offset;
-        enum Segment segment;
-        enum Binding binding;
-        fread(&sym_name, SYMBOL_SIZE*sizeof(char), 1, file);
-        fread(&offset, sizeof(uint32_t), 1, file);
-        fread(&segment, sizeof(enum Segment), 1, file);
-        fread(&binding, sizeof(enum Binding), 1, file);
-        char s[6];
-        if (segment == TEXT) {
-            strcpy(s, ".text");
-        } else if (segment == DATA) {
-            strcpy(s, ".data");
-        } else {
-            strcpy(s, "UNDEF");
-        }
-        printf("symbol %s at %s+%d (binding %d)\n", sym_name, s, offset, binding);
-    }
-
-    fclose(file);
-}
-
 // Returns whether c is a valid symbol character
 int is_symbol(char c) {
     return isalnum(c) || c == '_' || c == '$' || c == '.';
+}
+
+void debug_binary(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) {
+        printf("Could not open file\n");
+        return;
+    }
+
+    struct mof_file file;
+    mof_read_header(f, &file.hdr);
+    if (!mof_is_valid(&file.hdr)) {
+        printf("Invalid file\n");
+        fclose(f);
+        return;
+    }
+
+    // Read binary
+    if (fseek(f, 0, SEEK_END) != 0) {
+        printf("Could not read file\n");
+        fclose(f);
+        return;
+    }
+    const long size = ftell(f); // get file size
+    rewind(f);
+
+    void *map = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fileno(f), 0);
+    if (map == MAP_FAILED) {
+        printf("Could not read file\n");
+        fclose(f);
+        return;
+    }
+    fclose(f);
+    file.file = map;
+    file.text = mof_text(file.file);
+    file.data = mof_data(file.file, &file.hdr);
+    file.relocs = mof_relocs(file.file, &file.hdr);
+    file.syms = mof_symbols(file.file, &file.hdr);
+    file.strings = mof_strtab(file.file, &file.hdr);
+
+    printf("MOF file: text %u bytes, data %u bytes, relocation %u bytes, symbols %u bytes\n", file.hdr.text, file.hdr.data, file.hdr.rels, file.hdr.syms);
+    printf("Program entry: 0x%.8x\n", file.hdr.entry);
+
+    for (uint32_t i = 0; i < file.hdr.text/4; i++) {
+        printf("0x%.8x: instruction 0x%.8x\n", TEXT_START+ i*4, file.text[i]);
+    }
+    for (uint32_t i = 0; i < file.hdr.data; i++) {
+        if (i % 4 == 3) {
+            printf("%.2x\n0x%.8x: data ", file.data[i], DATA_START + i);
+        } else {
+            printf("%.2x ", file.data[i]);
+        }
+    }
+    for (uint32_t i = 0; i < file.hdr.rels/MOF_RELOCSIZE; i++) {
+        struct mof_relocation reloc = file.relocs[i];
+        const char *dependency = &file.strings[reloc.index];
+        char segment[6];
+        if (reloc.segment == TEXT) {
+            strcpy(segment, ".text");
+        } else {
+            strcpy(segment, ".data");
+        }
+        printf("address at %s+%d needs relocation of type %d for symbol %s\n", segment, reloc.offset, reloc.type, dependency);
+    }
+    for (uint32_t i = 0; i < file.hdr.syms/MOF_SYMSIZE; i++) {
+        struct mof_symbol sym = file.syms[i];
+        const char *name = &file.strings[sym.index];
+        if (sym.segment == TEXT)
+            printf("%s: .text + %d, binding %d\n", name, sym.offset, sym.binding);
+        else if (sym.segment == DATA)
+            printf("%s: .data + %d, binding %d\n", name, sym.offset, sym.binding);
+        else if (sym.segment == UNDEF)
+            printf("%s: undefined, binding %d\n", name, sym.binding);
+    }
+
+    strtab_debug2(file.strings, size - MOF_STROFF(&file.hdr));
+
+    munmap(file.file, size);
 }

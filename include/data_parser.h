@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "symbol_table.h"
+#include "utils.h"
 
 /* === TYPES === */
 
@@ -16,40 +17,43 @@ enum DataType {
     ALIGN      // pseudo-type; becomes a SPACE type
 };
 
-typedef struct {
+typedef struct Data Data;
+typedef struct DataList DataList;
+
+struct Data {
     enum DataType type;
     union {
         int32_t word;
         int16_t half;
         int8_t byte;
         char *string;
-        char symbol[SYMBOL_SIZE];
+        Symbol *symbol;
     } value;
     uint32_t size;
     unsigned char isSymbol;
     const Line *line; // corresponding line in the Text list
-} Data;
+};
 
-typedef struct {
+struct DataList {
     size_t len;
     size_t cap;
     uint32_t data_offset;
     Data *list;
-} DataList;
+};
 
 /* === DATA PARSING === */
 
 // Parse the given string into the data struct
 // Return boolean success
-int word(Data *, const char *);
-int half(Data *, const char *);
-int byte(Data *, const char *);
-int string(Data *, const char *);
-int string_nt(Data *, const char *);
+int word(Data *, const char *, SymbolTable *);
+int half(Data *, const char *, SymbolTable *);
+int byte(Data *, const char *, SymbolTable *);
+int string(Data *, const char *, SymbolTable *);
+int string_nt(Data *, const char *, SymbolTable *);
 
-extern int (*PROCESS_DATA[5])(Data *, const char *);
+extern int (*PROCESS_DATA[5])(Data *, const char *, SymbolTable *);
 
-int process_data(Data *data, enum DataType data_type, const char *str);
+int process_data(Data *data, enum DataType data_type, const char *str, SymbolTable *symbol_table);
 
 /* === DATALIST METHODS === */
 

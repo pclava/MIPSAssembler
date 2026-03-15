@@ -247,7 +247,7 @@ uint32_t convert_rtype(Instruction instruction, const InstrDesc *desc) {
          */
         shamt = (instruction.imm.intValue % 32 + 32) % 32;
     } else if (instruction.imm.type != NONE) {
-        raise_error(ARG_INV, instruction.imm.symbol, __FILE__);
+        raise_error(ARGS_INV, NULL, __FILE__);
         return -1;
     }
 
@@ -266,7 +266,7 @@ uint32_t convert_rtype(Instruction instruction, const InstrDesc *desc) {
     return opcode | regs[0] | regs[1] | regs[2] | shamt | funct;
 }
 
-uint32_t convert_itype(const Instruction instruction, SymbolTable *symbol_table, RelocationTable *reloc_table, const InstrDesc *desc, const uint32_t current_offset) {
+uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, const uint32_t current_offset) {
     if (desc->format != I) {
         raise_error(NOERR, NULL, __FILE__);
         return -1;
@@ -305,10 +305,10 @@ uint32_t convert_itype(const Instruction instruction, SymbolTable *symbol_table,
             return -1;
         }
 
-        Symbol *s = st_get_symbol_safe(symbol_table, instruction.imm.symbol);
+        Symbol *s = instruction.imm.symbol;
         if (s == NULL) return -1;
         RelocationEntry reloc;
-        if (re_init(&reloc, current_offset, TEXT, R_PC16, s->name) == 0) return -1;
+        if (re_init(&reloc, s->index, current_offset, TEXT, R_PC16) == 0) return -1;
         rt_add(reloc_table, reloc);
 
         imm = 0;
@@ -322,20 +322,20 @@ uint32_t convert_itype(const Instruction instruction, SymbolTable *symbol_table,
 
         // hi and lo bits of a symbol
         if (instruction.imm.type == SYMBOL) {
-            Symbol *s = st_get_symbol_safe(symbol_table, instruction.imm.symbol);
+            Symbol *s = instruction.imm.symbol;
             if (s == NULL) return -1;
             RelocationEntry reloc;
             imm = 0;
 
             switch (instruction.imm.modifier) {
                 case 1: // R_HI16
-                    if (re_init(&reloc, current_offset, TEXT, R_HI16, s->name) == 0) return -1;
+                    if (re_init(&reloc, s->index, current_offset, TEXT, R_HI16) == 0) return -1;
                     break;
                 case 2: // R_LO16
-                    if (re_init(&reloc, current_offset, TEXT, R_LO16, s->name) == 0) return -1;
+                    if (re_init(&reloc, s->index, current_offset, TEXT, R_LO16) == 0) return -1;
                     break;
                 default:
-                    raise_error(ARG_INV, instruction.imm.symbol, __FILE__);
+                    raise_error(ARGS_INV, NULL, __FILE__);
                     return -1;
             }
             rt_add(reloc_table, reloc);
@@ -386,12 +386,12 @@ uint32_t convert_itype(const Instruction instruction, SymbolTable *symbol_table,
             case 2: // lo symbol
                 imm = 0;
                 RelocationEntry reloc;
-                Symbol *s = st_get_symbol_safe(symbol_table, instruction.imm.symbol);
+                Symbol *s = instruction.imm.symbol;
                 if (s == NULL) return -1;
-                if (instruction.imm.modifier == 1) {if (re_init(&reloc, current_offset, TEXT, R_HI16, s->name) == 0) return -1;}
-                else if (instruction.imm.modifier == 2) {if (re_init(&reloc, current_offset, TEXT, R_LO16, s->name) == 0) return -1;}
+                if (instruction.imm.modifier == 1) {if (re_init(&reloc, s->index, current_offset, TEXT, R_HI16) == 0) return -1;}
+                else if (instruction.imm.modifier == 2) {if (re_init(&reloc, s->index, current_offset, TEXT, R_LO16) == 0) return -1;}
                 else {
-                    raise_error(ARG_INV, instruction.imm.symbol, __FILE__);
+                    raise_error(ARGS_INV, NULL, __FILE__);
                     return -1;
                 }
                 rt_add(reloc_table, reloc);
@@ -409,7 +409,7 @@ uint32_t convert_itype(const Instruction instruction, SymbolTable *symbol_table,
     return opcode | regs[0] | regs[1] | imm;
 }
 
-uint32_t convert_jtype(const Instruction instruction, const SymbolTable *symbol_table, RelocationTable *reloc_table, const InstrDesc *desc, const uint32_t current_offset) {
+uint32_t convert_jtype(const Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, const uint32_t current_offset) {
     if (desc->format != J) {
         raise_error(NOERR, NULL, __FILE__);
         return -1;
@@ -429,10 +429,10 @@ uint32_t convert_jtype(const Instruction instruction, const SymbolTable *symbol_
     }
 
     // J-type instructions require R_26 relocation
-    const Symbol *s = st_get_symbol_safe(symbol_table, instruction.imm.symbol);
+    Symbol *s = instruction.imm.symbol;
     if (s == NULL) return -1;
     RelocationEntry reloc;
-    if (re_init(&reloc, current_offset, TEXT, R_26, s->name) == 0) return -1;
+    if (re_init(&reloc, s->index, current_offset, TEXT, R_26) == 0) return -1;
     rt_add(reloc_table, reloc);
 
     opcode <<= 26;

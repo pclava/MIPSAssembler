@@ -3,23 +3,28 @@
 #include "instruction_parser.h"
 
 #define MACRO_TABLE_LENGTH 256
+#define MACRO_SIZE 32
 
-typedef struct {
-    char name[SYMBOL_SIZE];
+typedef struct Macro Macro;
+typedef struct MacroBucket MacroBucket;
+typedef struct MacroTable MacroTable;
+
+struct Macro {
+    char name[MACRO_SIZE];
     Line *definition_start;
     size_t definition_length;
     char args[32][32];
-} Macro;
+};
 
-typedef struct {
+struct MacroBucket {
     Macro macro;
     unsigned char inUse;
-} MacroBucket;
+};
 
-typedef struct {
+struct MacroTable{
     MacroBucket *buckets;
     size_t size;
-} MacroTable;
+};
 
 int mt_init(MacroTable *table);
 
