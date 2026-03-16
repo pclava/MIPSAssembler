@@ -277,7 +277,6 @@ void error(void) {
     if (ERROR_HANDLER.err_code >= 1 && ERROR_HANDLER.err_code <= 3) {
         if (ERROR_HANDLER.file == NULL) {
             fprintf(stderr, "An error occured\n");
-            return;
         }
         general_error(ERROR_HANDLER.err_code, ERROR_HANDLER.file, ERROR_HANDLER.err_obj);
     }
@@ -286,7 +285,6 @@ void error(void) {
     if (ERROR_HANDLER.err_code > 3) {
         if (ERROR_HANDLER.line == NULL) {
             fprintf(stderr, "An error occured\n");
-            return;
         }
         assembler_error(ERROR_HANDLER.err_code, ERROR_HANDLER.line, ERROR_HANDLER.err_obj);
         return;
@@ -299,7 +297,7 @@ void error_context(const char * str) {
 }
 
 void general_error(const errcode code, const char *file, const char * object) {
-    fprintf(stderr, "Error in %s:\n  ", file);
+    if (file != NULL) fprintf(stderr, "Error in %s:\n  ", file);
     switch (code) {
         case FILE_IO:
             fprintf(stderr, "-> could not access file \"%s\"\n", object);
@@ -319,7 +317,7 @@ void general_error(const errcode code, const char *file, const char * object) {
 }
 
 void assembler_error(const errcode code, const Line *line, const char * object) {
-    fprintf(stderr, "Error in %s:%d\n    %s\n    ", line->filename, line->number, line->text);
+    if (line != NULL) fprintf(stderr, "Error in %s:%d\n    %s\n    ", line->filename, line->number, line->text);
     switch (code) {
         case TOKEN_ERR:
             fprintf(stderr, "-> unrecognized token \"%s\"\n", object);
