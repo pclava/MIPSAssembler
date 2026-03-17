@@ -27,6 +27,7 @@ uint32_t get_final_address(const Symbol symbol, const uint32_t object_offset) {
 }
 
 void file_destroy(const SourceFile *file) {
+    if (file == NULL) return;
     st_destroy(file->symbol_table);
     free(file->symbol_table);
     if (munmap(file->file.file, file->file.size) == -1) {
@@ -317,7 +318,7 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
 
     // Go through each file and resolve every relocation
     for (int file_index = 0; file_index < file_count; file_index++) {
-        file_relocation(&source_files[file_index], &global_symbols);
+        if (file_relocation(&source_files[file_index], &global_symbols) == 0) goto _link_failed;
     }
     if (options.link_start) {
         file_relocation(&start, &global_symbols);
