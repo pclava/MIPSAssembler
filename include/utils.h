@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#define try(expression, ret) if (expression == 0) return ret;
+
 /* === CONSTANTS === */
 #define MAX_5U 31
 #define MAX_6U 63

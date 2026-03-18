@@ -12,7 +12,7 @@ typedef struct StringTable StringTable;
 struct String {
     char *str;
     size_t cap;
-    size_t len;
+    size_t len;         // result of strlen() (i.e., does not count null terminator)
 };
 
 struct StringTable {
@@ -29,7 +29,9 @@ int string_append(String *str, char c);
 
 char string_get(const String *str, size_t index);
 
-void string_insert(const String *str, size_t index, char c);
+void string_set(const String *str, size_t index, char c);
+
+int string_insert(String *str, size_t index, const char *src);
 
 int string_cpy_to(String *dst, const char *src);
 

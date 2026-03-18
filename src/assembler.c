@@ -45,7 +45,7 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
     int readMnemonic = 0; // Whether the mnemonic has been read. Set to true when the assembler finds the first token not ending in ':'
 
     String label;
-    if (string_init(&label) == 0) return 0;
+    try(string_init(&label), 0);
 
     // Loop through each token
     while (token != NULL) {
@@ -69,11 +69,11 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
                     raise_error(SYMBOL_INV, token, __FILE__);
                     return 0;
                 }
-                string_insert(&label, i, token[i]);
+                string_set(&label, i, token[i]);
             }
 
             // Add to symbol table (assumes local, but if it exists as global, will preserve that binding)
-            if (st_add_symbol(assembler->symbol_table, label.str, assembler->instruction_list->text_offset, TEXT, LOCAL) == 0) return 0;
+            try(st_add_symbol(assembler->symbol_table, label.str, assembler->instruction_list->text_offset, TEXT, LOCAL), 0);
         }
 
         // Read mnemonic. This will catch the first token not ending in ':' and set readMnemonic to true.
@@ -86,7 +86,7 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
 
             // === CHECK IF MACRO ===
             if (mt_exists(assembler->macro_table, token) != MACRO_TABLE_LENGTH) {
-                if (insert_macro(assembler->preprocessed, assembler->macro_table, token, line) == 0) return 0;
+                try(insert_macro(assembler->preprocessed, assembler->macro_table, token, line), 0);
                 return 2;
             }
 
@@ -175,14 +175,12 @@ int read_text(const Assembler *assembler, Line *line) {
 
     Instruction instruction;
     int success = parse_instruction(assembler, line, &instruction);
-    if (success == 0) {
-        return 0;
-    }
+    try(success, 0);
     if (success == 2) return 1;
     instruction.line = line;
 
     // Add to instruction list
-    if (process_instruction(instruction, assembler->instruction_list) == 0) return 0;
+    try(process_instruction(instruction, assembler->instruction_list), 0);
 
     return 1;
 }
@@ -237,7 +235,7 @@ int read_data(const Assembler *assembler, const Line *line) {
                     free(argument);
                     return 0;
                 }
-                string_insert(&labels[label_count], i, token[i]);
+                string_set(&labels[label_count], i, token[i]);
             }
             label_count++;
 
@@ -581,16 +579,12 @@ int assembler_first_pass(Assembler *assembler) {
 
         // TEXT
         if (current_segment == TEXT) {
-            if (read_text(assembler, line) == 0) {
-                return 0;
-            }
+            try(read_text(assembler, line), 0);
         }
 
         // DATA
         else if (current_segment == DATA){
-            if (read_data(assembler, line) == 0) {
-                return 0;
-            }
+            try(read_data(assembler, line), 0);
         }
 
         continue_line:
@@ -730,7 +724,7 @@ int assembler_init(Assembler *assembler, Text *preprocessed) {
         raise_error(MEM, NULL, __FILE__);
         return 0;
     }
-    if (mt_init(macro_table) == 0) return 0;
+    try(mt_init(macro_table), 0);
     assembler->macro_table = macro_table;
 
     // Initialize symbol table
@@ -739,7 +733,7 @@ int assembler_init(Assembler *assembler, Text *preprocessed) {
         raise_error(MEM, NULL, __FILE__);
         return 0;
     }
-    if (st_init(symbol_table) == 0) return 0;
+    try(st_init(symbol_table), 0);
     assembler->symbol_table = symbol_table;
 
     // Initialize instruction list
@@ -748,7 +742,7 @@ int assembler_init(Assembler *assembler, Text *preprocessed) {
         raise_error(MEM, NULL, __FILE__);
         return 0;
     }
-    if (il_init(instruction_list, 0) == 0) return 0;
+    try(il_init(instruction_list, 0), 0);
     assembler->instruction_list = instruction_list;
 
     // Initialize data list
@@ -757,7 +751,7 @@ int assembler_init(Assembler *assembler, Text *preprocessed) {
         raise_error(MEM, NULL, __FILE__);
         return 0;
     }
-    if (dl_init(data_list, 0) == 0) return 0;
+    try(dl_init(data_list, 0), 0);
     assembler->data_list = data_list;
 
     // Initialize instruction table
@@ -766,7 +760,7 @@ int assembler_init(Assembler *assembler, Text *preprocessed) {
         raise_error(MEM, NULL, __FILE__);
         return 0;
     }
-    if (it_create(instruction_table) == 0) return 0;
+    try(it_create(instruction_table), 0);
     assembler->instruction_table = instruction_table;
 
     // Initialize relocation table
@@ -775,7 +769,7 @@ int assembler_init(Assembler *assembler, Text *preprocessed) {
         raise_error(MEM, NULL, __FILE__);
         return 0;
     }
-    if (rt_init(relocation_table) == 0) return 0;
+    try(rt_init(relocation_table), 0);
     assembler->relocation_table = relocation_table;
 
     return 1;

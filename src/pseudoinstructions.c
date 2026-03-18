@@ -251,17 +251,17 @@ int insert_macro(Text *text_list, const MacroTable *table, const char *name, Lin
 
                 // skip the hi and lo operators
                 if (strcmp(argbuf, "%lo") == 0) {
-                    line_add_char(&to_insert, '%');
-                    line_add_char(&to_insert, 'l');
-                    line_add_char(&to_insert, 'o');
-                    line_add_char(&to_insert, end_char);
+                    line_append(&to_insert, '%');
+                    line_append(&to_insert, 'l');
+                    line_append(&to_insert, 'o');
+                    line_append(&to_insert, end_char);
                     continue;
                 }
                 if (strcmp(argbuf, "%hi") == 0) {
-                    line_add_char(&to_insert, '%');
-                    line_add_char(&to_insert, 'h');
-                    line_add_char(&to_insert, 'i');
-                    line_add_char(&to_insert, end_char);
+                    line_append(&to_insert, '%');
+                    line_append(&to_insert, 'h');
+                    line_append(&to_insert, 'i');
+                    line_append(&to_insert, end_char);
                     continue;
                 }
 
@@ -278,17 +278,17 @@ int insert_macro(Text *text_list, const MacroTable *table, const char *name, Lin
 
                 // Real argument is args[res]; copy that
                 for (size_t k = 0; k < strlen(args[res]); k++) {
-                    line_add_char(&to_insert, args[res][k]);
+                    line_append(&to_insert, args[res][k]);
                 }
 
                 // Add space
-                line_add_char(&to_insert, end_char);
+                line_append(&to_insert, end_char);
             }
 
             // Otherwise insert normally
-            else line_add_char(&to_insert, c);
+            else line_append(&to_insert, c);
         }
-        line_add_char(&to_insert, '\0'); // to be safe
+        line_append(&to_insert, '\0'); // to be safe
 
         // Insert into text
         before = text_insert(text_list, to_insert, before);
@@ -322,9 +322,7 @@ int li(const Instruction instruction, InstructionList* instructions) {
         i1.registers[1] = 0;
         i1.registers[2] = 255;
         i1.imm = imm;
-        if (add_instruction(instructions, i1) == 0) {
-            return 0;
-        }
+        try(add_instruction(instructions, i1), 0);
         return 1;
     }
     // 32-bit
@@ -351,9 +349,8 @@ int li(const Instruction instruction, InstructionList* instructions) {
     i2.line = instruction.line;
     i2.imm = loImm;
 
-    if (add_instruction(instructions, i1) == 0 || add_instruction(instructions, i2) == 0) {
-        return 0;
-    }
+    try(add_instruction(instructions, i1), 0);
+    try(add_instruction(instructions, i2), 0);
     return 2;
 }
 

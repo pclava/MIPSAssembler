@@ -110,7 +110,7 @@ int it_init(InstructionTable *table) {
 
 // Initializes and populates the hash table
 int it_create(InstructionTable *table) {
-    if (it_init(table) == 0) return 0;
+    try(it_init(table), 0);
 
     if (table->buckets == NULL) return 0;
 
@@ -308,7 +308,7 @@ uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_tab
         Symbol *s = instruction.imm.symbol;
         if (s == NULL) return -1;
         RelocationEntry reloc;
-        if (re_init(&reloc, s->index, current_offset, TEXT, R_PC16) == 0) return -1;
+        try(re_init(&reloc, s->index, current_offset, TEXT, R_PC16), -1);
         rt_add(reloc_table, reloc);
 
         imm = 0;
@@ -329,10 +329,10 @@ uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_tab
 
             switch (instruction.imm.modifier) {
                 case 1: // R_HI16
-                    if (re_init(&reloc, s->index, current_offset, TEXT, R_HI16) == 0) return -1;
+                    try(re_init(&reloc, s->index, current_offset, TEXT, R_HI16), -1);
                     break;
                 case 2: // R_LO16
-                    if (re_init(&reloc, s->index, current_offset, TEXT, R_LO16) == 0) return -1;
+                    try(re_init(&reloc, s->index, current_offset, TEXT, R_LO16), -1);
                     break;
                 default:
                     raise_error(ARGS_INV, NULL, __FILE__);
@@ -388,8 +388,12 @@ uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_tab
                 RelocationEntry reloc;
                 Symbol *s = instruction.imm.symbol;
                 if (s == NULL) return -1;
-                if (instruction.imm.modifier == 1) {if (re_init(&reloc, s->index, current_offset, TEXT, R_HI16) == 0) return -1;}
-                else if (instruction.imm.modifier == 2) {if (re_init(&reloc, s->index, current_offset, TEXT, R_LO16) == 0) return -1;}
+                if (instruction.imm.modifier == 1) {
+                    try(re_init(&reloc, s->index, current_offset, TEXT, R_HI16), -1);
+                }
+                else if (instruction.imm.modifier == 2) {
+                    try(re_init(&reloc, s->index, current_offset, TEXT, R_LO16), -1);
+                }
                 else {
                     raise_error(ARGS_INV, NULL, __FILE__);
                     return -1;
@@ -432,7 +436,7 @@ uint32_t convert_jtype(const Instruction instruction, RelocationTable *reloc_tab
     Symbol *s = instruction.imm.symbol;
     if (s == NULL) return -1;
     RelocationEntry reloc;
-    if (re_init(&reloc, s->index, current_offset, TEXT, R_26) == 0) return -1;
+    try(re_init(&reloc, s->index, current_offset, TEXT, R_26), -1);
     rt_add(reloc_table, reloc);
 
     opcode <<= 26;

@@ -270,9 +270,7 @@ int data_pad(const Data data, DataList *data_list) {
 
 // Adds a Data structure of type SPACE
 int add_padding(const Line *line, const uint32_t bytes, DataList * data_list) {
-    if (bytes == 0) {
-        return 1;
-    }
+    try(bytes, 1);
     Data padding;
     padding.type = SPACE;
     padding.size = bytes;

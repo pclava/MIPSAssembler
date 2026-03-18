@@ -203,7 +203,7 @@ int file_init(SourceFile *file, uint32_t text_offset, uint32_t data_offset) {
         raise_error(MEM, NULL, __FILE__);
         return 0;
     }
-    if (st_init(symbol_table) == 0) return 0;
+    try(st_init(symbol_table), 0);
     file->symbol_table = symbol_table;
 
     return 1;
