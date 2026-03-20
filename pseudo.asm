@@ -1,4 +1,21 @@
-# Pseudoinstructions inserted at the start of every file by the preprocessor
+# Macros inserted at the start of every file by the preprocessor
+
+.define _TEXT 0x00400000
+.define _DATA 0x10010000
+.define _STACK 0x7fffffff
+.define _HEAP 0x10080000
+
+# Push to stack
+.macro push %r
+    addiu $sp, $sp, -4
+    sw %r, 0($sp)
+.end_macro
+
+# Pop from stack
+.macro pop %r
+    lw %r, 0($sp)
+    addiu $sp, $sp, 4
+.end_macro
 
 # Branch less than
 .macro blt %r1 %r2 %lbl
