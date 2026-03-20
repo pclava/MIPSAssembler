@@ -44,7 +44,7 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
     char *token = tokenize(line_buf, ' ');
     int argc = 0;
     unsigned char args[3];
-    int readMnemonic = 0; // Whether the mnemonic has been read. Set to true when the assembler finds the first token not ending in ':'
+    unsigned char readMnemonic = 0; // Whether the mnemonic has been read. Set to true when the assembler finds the first token not ending in ':'
 
     String label;
     try(string_init(&label), 0);
@@ -167,7 +167,6 @@ int read_text(const Assembler *assembler, Line *line) {
     Instruction instruction;
     int success = parse_instruction(assembler, line, &instruction);
     try(success, 0);
-    if (success == 2) return 1;
     instruction.line = line;
 
     // Add to instruction list

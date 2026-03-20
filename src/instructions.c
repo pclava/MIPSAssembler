@@ -10,7 +10,7 @@ This handles the representation of the MIPS instruction set
 as well as converting the intermediate representation Instruction structures to machine code
 */
 
-#define INSTRUCTION_COUNT 64
+#define INSTRUCTION_COUNT 63
 #define INSTRUCTION_TABLE_SIZE 256 // SHOULD BE DECENTLY LARGER THAN INSTRUCTION COUNT
 
 // ADD NEW INSTRUCTIONS HERE
@@ -28,6 +28,7 @@ static const InstrDesc instr_table[INSTRUCTION_COUNT] = {
     { "sltiu", 0x0b, -1, I, {1,0,-1} },
     { "andi",  0x0c, -1, I, {1,0,-1} },
     { "ori",   0x0d, -1, I, {1,0,-1} },
+    { "xori",  0x0e, -1, I, {1,0,-1} },
     { "lui",   0x0f, -1, I, {1,-1,-1} },
     { "lb",    0x20, -1, I, {1,-1,-1} },    // Memory instructions
     { "lh",    0x21, -1, I, {1,-1,-1} },
@@ -43,9 +44,6 @@ static const InstrDesc instr_table[INSTRUCTION_COUNT] = {
     { "swr",   0x2e, -1, I, {1,-1,-1} },
     { "j",     0x02,  -1, J, {-1,-1,-1} },  // J TYPE
     { "jal",   0x03,  -1, J, {-1,-1,-1} },
-    // need to modify relocation table for these
-    // { "bc",    0x32,  -1, J, {-1,-1,-1} },
-    // { "balc",  0x3a,  -1, J, {-1,-1,-1} },
 
     // SPECIAL ENCODING
     { "sll",        0x00, 0x00, R, {2,1,-1}     },  // R TYPE
@@ -84,9 +82,7 @@ static const InstrDesc instr_table[INSTRUCTION_COUNT] = {
     { "tlt",        0x00, 0x32, R, {0,1,-1}     },
     { "tltu",       0x00, 0x33, R, {0,1,-1}     },
     { "teq",        0x00, 0x34, R, {0,1,-1}     },
-    { "seleqz",     0x00, 0x35, R, {2,0,1}      },
     { "tne",        0x00, 0x36, R, {0,1,-1}     },
-    { "selnez",     0x00, 0x37, R, {2,0,1}      },
 };
 
 // Allocate memory and initialize hash table

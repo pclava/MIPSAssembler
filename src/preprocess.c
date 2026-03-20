@@ -94,7 +94,6 @@ int resolve_macros(Line *line, MacroTable *macro_table, Text *text) {
         if (index != MACRO_TABLE_LENGTH) goto _insert;
 
         _add_and_continue:
-        // if (new->len != 0) string_append(new, ' ');
 
         // Get character that was used as delimiter, so we can add it back
         // Note that sanitizer guarantees that spaces around parentheses are removed
@@ -207,7 +206,7 @@ int resolve_directives(Line *line, MacroTable *macro_table, size_t *end) {
     return 1;
 }
 
-// Normalizes whitespace, removes commas, removes comments, ensures spaces between strings
+// Normalizes whitespace, removes commas, removes comments, ensures spaces between strings, clears whitespace between ()
 // Returns 1 on success, or 2 if the line in question should be removed from the list
 int sanitize(Line *line) {
     if (line == NULL) return 0;
@@ -320,7 +319,7 @@ int split(FILE *inp, Text *lines) {
 int preprocess_file(FILE *inp, Text *text, MacroTable *macro_table) {
     try(split(inp, text), 0);                      // Split into lines
 
-    // Sanitize: normalize whitespace, remove commas, and remove comments
+    // Sanitize
     Line *cur = text->head;
     while (cur != NULL) {
         ERROR_HANDLER.line = cur;
