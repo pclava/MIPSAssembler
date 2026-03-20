@@ -7,19 +7,18 @@
 typedef struct Line Line;
 typedef struct Text Text;
 
-// TODO: update this to use a String
 struct Line {
     String *text;
     unsigned int number;
 
-    void *next;
-    void *prev;
+    Line *next;
+    Line *prev;
 };
 
 struct Text {
     Line *head;
     Line *tail;
-    unsigned int len;
+    size_t len;
     char *filename;
 };
 
@@ -30,6 +29,12 @@ int line_init(Line *line);
 int line_append(Line *line, char c);
 
 int line_insert(Line *str, size_t index, const char *c);
+
+int line_append_str(Line *str, const char *c);
+
+char *line_get_str(const Line *str);
+
+int line_cpy(Line *dest, const Line *src);
 
 void line_destroy(Line *line);
 

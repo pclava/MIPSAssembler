@@ -61,9 +61,11 @@ int main(int argc, char *argv[]) {
         }
 
         Text text;
-        text_init(&text);
+        text_init(&text, inp_path);
 
-        if (preprocess(inp_file, inp_path, &text) == 0) {
+        ERROR_HANDLER.file_name = text.filename;
+
+        if (preprocess(inp_file, &text) == 0) {
             fprintf(stderr, "Error in %s: could not preprocess file \"%s\"\n", __FILE__, inp_path);
             text_destroy(&text);
             for (int k = 0; k <= i-2; k++) {

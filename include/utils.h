@@ -20,6 +20,8 @@
 #define REGISTER_COUNT 32
 extern const char *REGISTERS[REGISTER_COUNT];
 
+#define COMMENT '#'
+
 typedef enum mof_binding Binding;
 typedef enum mof_segment Segment;
 typedef enum mof_reloctype RelocType;
@@ -67,7 +69,7 @@ typedef enum {
 
     // Assembler errors
     TOKEN_ERR,      // Unrecognized token (object = token)
-    SYMBOL_INV,     // Invalid symbol definition (object = symbol)
+    SYMBOL_INV,     // Invalid symbol definition (object = symbol name)
     ARG_INV,        // Invalid argument (object = argument)
     ARGS_INV,       // Instruction given invalid arguments (no object)
     DUPL_DEF,       // Token defined multiple times (object = token)
@@ -80,6 +82,7 @@ typedef struct {
     errcode err_code; // Error code
     const char * err_obj;   // Error object
     const Line *line; // For assembler errors, line in the input file
+    const char * file_name; // file currently being read
 } ErrorHandler;
 
 extern ErrorHandler ERROR_HANDLER;
@@ -142,6 +145,6 @@ unsigned char get_register(const char *token);
 
 void debug_binary(const char *name);
 
-int is_symbol(char c);
+int issymbol(char c);
 
 #endif //MIPS_ASSEMBLER_UTILS_H

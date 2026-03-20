@@ -30,7 +30,9 @@ enum DataType CURRENT_DIRECTIVE = WORD; // Keeps track of the type of data item 
 
 // Parses a string into an Instruction. Does most of the heavy-lifting for this part of the assembler.
 int parse_instruction(const Assembler *assembler, Line *line, Instruction *instruction) {
-    const char *line_text = line->text;
+    // const char *line_text = line->text;
+    const char *line_text = line_get_str(line);
+    if (line_text == NULL) return 0;
     memset(instruction->mnemonic, '\0', sizeof(instruction->mnemonic));
 
     const Immediate imm = {NONE, .intValue=0, .modifier=0};
@@ -65,7 +67,7 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
 
             // Copy over symbol
             for (size_t i = 0; i < len-1; i++) {
-                if ( !is_symbol(token[i]) ) {
+                if ( !issymbol(token[i]) ) {
                     raise_error(SYMBOL_INV, token, __FILE__);
                     return 0;
                 }
@@ -84,12 +86,6 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
                 return 0;
             }
 
-            // === CHECK IF MACRO ===
-            if (mt_exists(assembler->macro_table, token) != MACRO_TABLE_LENGTH) {
-                try(insert_macro(assembler->preprocessed, assembler->macro_table, token, line), 0);
-                return 2;
-            }
-
             strcpy(instruction->mnemonic, token);
             readMnemonic = 1;
         }
@@ -100,11 +96,6 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
                 raise_error(ARG_INV, token, __FILE__);
                 return 0;
             }
-
-            if (token[len-1] == ',') {
-                len--;
-                token[len] = '\0';
-            } // Remove comma
 
             // Read register
             if (token[0] == '$') {
@@ -190,8 +181,10 @@ int read_text(const Assembler *assembler, Line *line) {
 // Processes a Line containing data. Parses and adds to the DataList simultaneously.
 int read_data(const Assembler *assembler, const Line *line) {
 
-    char line_buffer[strlen(line->text) + 1]; // Use a separate buffer to avoid overwriting the input string
-    strcpy(line_buffer, line->text);
+    char *text = line_get_str(line);
+    if (text == NULL) return 0;
+    char line_buffer[strlen(text) + 1]; // Use a separate buffer to avoid overwriting the input string
+    strcpy(line_buffer, text);
 
     // Tokenize
     char *token = tokenize(line_buffer, ' ');
@@ -230,7 +223,7 @@ int read_data(const Assembler *assembler, const Line *line) {
             }
 
             for (size_t i = 0; i < strlen(token)-1; i++) {
-                if ( !is_symbol(token[i]) ) {
+                if ( !issymbol(token[i]) ) {
                     raise_error(SYMBOL_INV, token, __FILE__);
                     free(argument);
                     return 0;
@@ -520,17 +513,19 @@ int assembler_first_pass(Assembler *assembler) {
         ERROR_HANDLER.line = line;
 
         // preprocessor sometimes leaves trailing spaces; i should fix this there
-        if (line->text[strlen(line->text)-1] == ' ') line->text[strlen(line->text)-1] = '\0';
+        char *text = line_get_str(line);
+        if (text == NULL) return 0;
+        if (text[strlen(text)-1] == ' ') text[strlen(text)-1] = '\0';
 
         // Read directive
-        if (line->text[0] == '.') {
+        if (text[0] == '.') {
             char directive[16];
-            char c = line->text[1];
+            char c = text[1];
             int j = 0;
             while (!isspace(c) && c != '\0') {
                 directive[j] = c;
                 j++;
-                c = line->text[j+1];
+                c = text[j+1];
             }
             directive[j] = '\0';
 
@@ -544,8 +539,8 @@ int assembler_first_pass(Assembler *assembler) {
             }
             if (strcmp(directive, "globl") == 0) {
                 // Add all arguments to symbol table as global undefined symbols
-                char line_cpy[strlen(line->text)+1];
-                strcpy(line_cpy,line->text);
+                char line_cpy[strlen(text)+1];
+                strcpy(line_cpy,text);
                 const char *token = tokenize(line_cpy, ' ');
                 token = tokenize(NULL, ' '); // tokenize again to skip the directive
                 if (token == NULL) {
@@ -562,13 +557,6 @@ int assembler_first_pass(Assembler *assembler) {
 
                     token = tokenize(NULL, ' ');
                 }
-                goto continue_line;
-            }
-            if (strcmp(directive, "macro") == 0) {
-                // Define macro here. Macro is invoked by parse_instruction()
-                Macro macro;
-                line = define_macro(&macro, line);
-                mt_add(assembler->macro_table, macro);
                 goto continue_line;
             }
             if (current_segment != DATA) { // Any other directive must be in the data segment
@@ -712,20 +700,10 @@ int assemble(Text *preprocessed, const char *output) {
 int assembler_init(Assembler *assembler, Text *preprocessed) {
     assembler->preprocessed = preprocessed;
     assembler->symbol_table = NULL;
-    assembler->macro_table = NULL;
     assembler->data_list = NULL;
     assembler->instruction_list = NULL;
     assembler->instruction_table = NULL;
     assembler->relocation_table = NULL;
-
-    // Initialize macro table
-    MacroTable *macro_table = malloc(sizeof(MacroTable));
-    if (macro_table == NULL) {
-        raise_error(MEM, NULL, __FILE__);
-        return 0;
-    }
-    try(mt_init(macro_table), 0);
-    assembler->macro_table = macro_table;
 
     // Initialize symbol table
     SymbolTable *symbol_table = malloc(sizeof(SymbolTable));
@@ -777,10 +755,6 @@ int assembler_init(Assembler *assembler, Text *preprocessed) {
 
 // Frees the resources of the assembler and its components
 void assembler_destroy(Assembler *assembler) {
-    if (assembler->macro_table != NULL) {
-        mt_destroy(assembler->macro_table);
-        free(assembler->macro_table);
-    }
     if (assembler->data_list != NULL) {
         dl_destroy(assembler->data_list);
         free(assembler->data_list);
@@ -827,11 +801,5 @@ void assembler_debug(const Assembler *assembler) {
         rt_debug(assembler->relocation_table, assembler->symbol_table);
     } else {
         printf("No relocation table found\n");
-    }
-
-    if (assembler->macro_table != NULL) {
-        mt_debug(assembler->macro_table);
-    } else {
-        printf("No macro table found\n");
     }
 }

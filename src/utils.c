@@ -248,7 +248,8 @@ ErrorHandler ERROR_HANDLER = {
     NULL,
     NOERR,
     NULL,
-    NULL
+    NULL,
+    NULL,
 };
 
 // Updates the parameters of ERROR_HANDLER, calls error()
@@ -315,14 +316,14 @@ void general_error(const errcode code, const char *file, const char * object) {
 }
 
 void assembler_error(const errcode code, const Line *line, const char * object) {
-    if (line != NULL) fprintf(stderr, "Error in %s:%d\n    %s\n    ", line->filename, line->number, line->text);
+    if (line != NULL) fprintf(stderr, "Error in %s:%d\n    %s\n    ", ERROR_HANDLER.file_name, line->number, line_get_str(line));
     switch (code) {
         case TOKEN_ERR:
             fprintf(stderr, "-> unrecognized token \"%s\"\n", object);
             break;
         case SYMBOL_INV:
-            fprintf(stderr, "-> invalid symbol definition \"%s\"\n    ", object);
-            fprintf(stderr, "-> symbols can only contain alphanumeric including ._$ and cannot begin with a number\n");
+            fprintf(stderr, "-> invalid symbol or macro definition \"%s\"\n    ", object);
+            fprintf(stderr, "-> symbols and macros can only be alphanumeric including ._$ and cannot begin with a number\n");
             break;
         case ARG_INV:
             fprintf(stderr, "-> invalid argument \"%s\"\n", object);
@@ -441,8 +442,8 @@ size_t read_escape_sequence(const char *inp, char *res) {
 
 char * TOKENIZE_START = NULL; // Used by tokenize(): saves the index of the first character of the next token
 
-// Tokenize the string given a single delimeter
-// Unlike strtok(), tokenize() does not skip consecutive delimeters, instead stopping at each one.
+// Tokenize the string given a single delimiter
+// Unlike strtok(), tokenize() does not skip consecutive delimiters, instead stopping at each one.
 // To continue tokenizing the same string, pass NULL as the input.
 // Returns NULL when there are no more tokens to read.
 char * tokenize(char *str, const char delim) {
@@ -571,7 +572,7 @@ unsigned char get_register(const char *token) {
 }
 
 // Returns whether c is a valid symbol character
-int is_symbol(char c) {
+int issymbol(char c) {
     return isalnum(c) || c == '_' || c == '$' || c == '.';
 }
 

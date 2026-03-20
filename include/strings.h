@@ -27,6 +27,8 @@ void string_destroy(String *str);
 
 int string_append(String *str, char c);
 
+int string_append_string(String *str, const char *c);
+
 char string_get(const String *str, size_t index);
 
 void string_set(const String *str, size_t index, char c);

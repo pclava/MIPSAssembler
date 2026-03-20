@@ -1,6 +1,5 @@
 #include "text.h"
 
-#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -9,10 +8,7 @@
 /* Text
 
 Used by the preprocessor to store the preprocessed input file
-Implemented as a linked list of Line structures,
-itself a dynamic array of characters.
-
-Lines also contain information for error handling (filename and number)
+Implemented as a linked list of Line structures, which is internally a String structure with more metadata
 */
 
 // Initializes and allocates memory
@@ -40,8 +36,25 @@ int line_append(Line *line, const char c) {
     return string_append(line->text, c);
 }
 
+int line_append_str(Line *line, const char *c) {
+    return string_append_string(line->text, c);
+}
+
+char *line_get_str(const Line *str) {
+    if (str == NULL || str->text == NULL) return NULL;
+    return str->text->str;
+}
+
 int line_insert(Line *str, size_t index, const char *c) {
     return string_insert(str->text, index, c);
+}
+
+// Copies into an already-initialized line
+int line_cpy(Line *dst, const Line *src) {
+    if (dst == NULL || src == NULL) return 0;
+    memset(dst->text->str, '\0', dst->text->len);
+    dst->text->len = 0;
+    return line_insert(dst, 0, src->text->str);
 }
 
 // Frees resources (text and filename)
@@ -49,6 +62,7 @@ void line_destroy(Line *line) {
     if (line->text != NULL) {
         string_destroy(line->text);
     }
+    free(line);
 }
 
 // Initializes and allocates memory
@@ -149,7 +163,7 @@ void text_destroy(const Text *text) {
 void text_debug(const Text * text) {
     Line *cur = text->head;
     while (cur != NULL) {
-        printf("%d: %s", cur->number, cur->text->str);
+        printf("%.3d: <%s> (%lu)\n", cur->number, cur->text->str, cur->text->len);
         cur = cur->next;
     }
 }
