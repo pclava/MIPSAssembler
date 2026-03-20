@@ -314,16 +314,6 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
         fclose(f);
     }
 
-    // At this point, every file has been read and we know every final address
-
-    // Go through each file and resolve every relocation
-    for (int file_index = 0; file_index < file_count; file_index++) {
-        if (file_relocation(&source_files[file_index], &global_symbols) == 0) goto _link_failed;
-    }
-    if (options.link_start) {
-        file_relocation(&start, &global_symbols);
-    }
-
     // Determine entry
     if (options.entry == NULL) {
         final_header.entry = TEXT_START;
@@ -335,6 +325,19 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
             return 0;
         }
         final_header.entry = entry->offset;
+    }
+
+    // Create a global symbol __ENTRY pointing to program entry
+    if (st_add_symbol(&global_symbols, "__ENTRY", final_header.entry, TEXT, GLOBAL) ==0) goto _link_failed;
+
+    // At this point, every file has been read and we know every final address
+
+    // Go through each file and resolve every relocation
+    for (int file_index = 0; file_index < file_count; file_index++) {
+        if (file_relocation(&source_files[file_index], &global_symbols) == 0) goto _link_failed;
+    }
+    if (options.link_start) {
+        file_relocation(&start, &global_symbols);
     }
 
     /*

@@ -146,7 +146,7 @@ int define_constant(Macro *macro, const Line *line) {
     }
     strcpy(macro->name, token);
     // Ensure name is wholly symbol valid
-    if (!isalpha(macro->name[0])) {
+    if (isdigit(macro->name[0])) {
         raise_error(SYMBOL_INV, macro->name, __FILE__);
         return 0;
     }
@@ -204,7 +204,7 @@ Line *define_macro(Macro *macro, const Line *line) {
     }
     strcpy(macro->name, token);
     // Ensure name (and later arguments) are wholly symbol valid
-    if (!isalpha(macro->name[0])) {
+    if (isdigit(macro->name[0])) {
         raise_error(SYMBOL_INV, macro->name, __FILE__);
         return NULL;
     }
