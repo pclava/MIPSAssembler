@@ -21,7 +21,7 @@ typedef struct mof_symbol Symbol;   // dont touch this
 
 struct SymbolBucket {
     Symbol item;
-    void *next;
+    SymbolBucket *next;
 };
 
 struct SymbolTable {

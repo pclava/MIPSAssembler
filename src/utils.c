@@ -47,11 +47,11 @@ const char * read_operator(Immediate * imm, const char *str, SymbolTable * symbo
 
     // Read symbol until close parenthesis
     String *string = malloc(sizeof(Symbol));
-    if (string_init(string) == 0) return NULL;
+    try(string_init(string), NULL);
 
     i = 0;
     while (i < 31 && str[j] != ')' && str[j] != '\0') {
-        string_insert(string, i++, str[j++]);
+        string_set(string, i++, str[j++]);
     }
     if (*str == '\0' || i == 31) {
         raise_error(ARG_INV, str, __FILE__);
@@ -60,7 +60,7 @@ const char * read_operator(Immediate * imm, const char *str, SymbolTable * symbo
 
     // Get symbol
     if (st_exists(symbol_table, string->str) == SYMBOL_TABLE_SIZE) {
-        if (st_add_symbol(symbol_table, string->str, 0, UNDEF, LOCAL) == 0) return 0;
+        try(st_add_symbol(symbol_table, string->str, 0, UNDEF, LOCAL), 0);
     }
     Symbol *s = st_get_symbol(symbol_table, string->str);
 
@@ -211,25 +211,23 @@ Immediate parse_imm(const char * str, SymbolTable *symbol_table) {
 }
 
 int write_byte(FILE *file, const uint8_t byte) {
-    if (fwrite(&byte, 1, 1, file) == 0) return 0;
+    try(fwrite(&byte, 1, 1, file), 0);
     return 1;
 }
 
 int write_word(FILE *file, const uint32_t word) {
-    if (fwrite(&word, 4, 1, file) == 0) return 0;
+    try(fwrite(&word, 4, 1, file), 0);
     return 1;
 }
 
 int write_half(FILE *file, const uint16_t half) {
-    if (fwrite(&half, 2, 1, file) == 0) return 0;
+    try(fwrite(&half, 2, 1, file), 0);
     return 1;
 }
 
 int write_string(FILE *file, const char *str, const uint32_t len) {
     for (size_t i = 0; i < len; i++) {
-        if (write_byte(file, str[i]) == 0) {
-            return 0;
-        }
+        try(write_byte(file, str[i]), 0);
     }
     return 1;
 }
@@ -250,7 +248,8 @@ ErrorHandler ERROR_HANDLER = {
     NULL,
     NOERR,
     NULL,
-    NULL
+    NULL,
+    NULL,
 };
 
 // Updates the parameters of ERROR_HANDLER, calls error()
@@ -317,14 +316,14 @@ void general_error(const errcode code, const char *file, const char * object) {
 }
 
 void assembler_error(const errcode code, const Line *line, const char * object) {
-    if (line != NULL) fprintf(stderr, "Error in %s:%d\n    %s\n    ", line->filename, line->number, line->text);
+    if (line != NULL) fprintf(stderr, "Error in %s:%d\n    %s\n    ", ERROR_HANDLER.file_name, line->number, line_get_str(line));
     switch (code) {
         case TOKEN_ERR:
             fprintf(stderr, "-> unrecognized token \"%s\"\n", object);
             break;
         case SYMBOL_INV:
-            fprintf(stderr, "-> invalid symbol definition \"%s\"\n    ", object);
-            fprintf(stderr, "-> symbols can only contain alphanumeric including ._$ and cannot begin with a number\n");
+            fprintf(stderr, "-> invalid symbol or macro definition \"%s\"\n    ", object);
+            fprintf(stderr, "-> symbols and macros can only be alphanumeric including ._$ and cannot begin with a number\n");
             break;
         case ARG_INV:
             fprintf(stderr, "-> invalid argument \"%s\"\n", object);
@@ -443,8 +442,8 @@ size_t read_escape_sequence(const char *inp, char *res) {
 
 char * TOKENIZE_START = NULL; // Used by tokenize(): saves the index of the first character of the next token
 
-// Tokenize the string given a single delimeter
-// Unlike strtok(), tokenize() does not skip consecutive delimeters, instead stopping at each one.
+// Tokenize the string given a single delimiter
+// Unlike strtok(), tokenize() does not skip consecutive delimiters, instead stopping at each one.
 // To continue tokenizing the same string, pass NULL as the input.
 // Returns NULL when there are no more tokens to read.
 char * tokenize(char *str, const char delim) {
@@ -522,7 +521,7 @@ char * read_string(char *dst, size_t *dst_size, char *token, int *len) {
         if (token[i] == '\\') {
             char C;
             const size_t offset = read_escape_sequence(&token[i], &C);
-            if (offset == 0) return 0;
+            try(offset, 0);
             dst[j] = C;
             i += (int) offset-1;
         }
@@ -573,7 +572,7 @@ unsigned char get_register(const char *token) {
 }
 
 // Returns whether c is a valid symbol character
-int is_symbol(char c) {
+int issymbol(char c) {
     return isalnum(c) || c == '_' || c == '$' || c == '.';
 }
 

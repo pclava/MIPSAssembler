@@ -1,5 +1,4 @@
 # Optionally inserted by the linker at the end of the program - calls the 'main' function
-
 .text
 .globl __start
 __start:

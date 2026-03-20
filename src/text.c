@@ -8,69 +8,77 @@
 /* Text
 
 Used by the preprocessor to store the preprocessed input file
-Implemented as a linked list of Line structures,
-itself a dynamic array of characters.
-
-Lines also contain information for error handling (filename and number)
+Implemented as a linked list of Line structures, which is internally a String structure with more metadata
 */
 
 // Initializes and allocates memory
-int line_init(Line *line, const char *fileName) {
-    line->len = 0;
-    line->cap = 64;
+int line_init(Line *line) {
     line->number = -1;
     line->next = NULL;
     line->prev = NULL;
 
-    char *text = malloc(line->cap);
-    if (text == NULL) {
-        general_error(MEM, __FILE__, NULL);
-    }
-    line->text = text;
-
-    char *fname = malloc(strlen(fileName)+1);
-    if (fname == NULL) {
-        free(text);
-        general_error(MEM, __FILE__, NULL);
+    String *str = malloc(sizeof(String));
+    if (str == NULL) {
+        raise_error(MEM, __FILE__, NULL);
         return 0;
     }
+    if (string_init(str) == 0) {
+        free(str);
+        return 0;
+    }
+    line->text = str;
 
-    strcpy(fname, fileName);
-    line->filename = fname;
     return 1;
 }
 
 // Adds a character to the end of the array
-int line_add_char(Line * line, const char c) {
-    if (line->len >= line->cap) {
-        line->cap *= 2;
-        char *new = realloc(line->text, line->cap * sizeof(char));
-        if (new == NULL) {
-            general_error(MEM, __FILE__, NULL);
-            return 0;
-        }
-        line->text = new;
-    }
-    line->text[line->len] = c;
-    line->len++;
-    return 1;
+int line_append(Line *line, const char c) {
+    return string_append(line->text, c);
+}
+
+int line_append_str(Line *line, const char *c) {
+    return string_append_string(line->text, c);
+}
+
+char *line_get_str(const Line *str) {
+    if (str == NULL || str->text == NULL) return NULL;
+    return str->text->str;
+}
+
+int line_insert(Line *str, size_t index, const char *c) {
+    return string_insert(str->text, index, c);
+}
+
+// Copies into an already-initialized line
+int line_cpy(Line *dst, const Line *src) {
+    if (dst == NULL || src == NULL) return 0;
+    memset(dst->text->str, '\0', dst->text->len);
+    dst->text->len = 0;
+    return line_insert(dst, 0, src->text->str);
 }
 
 // Frees resources (text and filename)
 void line_destroy(Line *line) {
-    if (line->filename != NULL) {
-        free(line->filename);
-    }
     if (line->text != NULL) {
-        free(line->text);
+        string_destroy(line->text);
     }
+    free(line);
 }
 
 // Initializes and allocates memory
-int text_init(Text *text) {
+int text_init(Text *text, const char *fileName) {
     text->len = 0;
     text->head = NULL;
     text->tail = NULL;
+    text->filename = NULL;
+    if (fileName != NULL) {
+        text->filename = strdup(fileName);
+        if (text->filename == NULL) {
+            raise_error(MEM, __FILE__, NULL);
+            return 0;
+        }
+    }
+
     return 1;
 }
 
@@ -142,18 +150,20 @@ Line text_remove(Text *text, Line *line) {
 
 // Frees resources (internal array and all Line resources)
 void text_destroy(const Text *text) {
+    if (text == NULL) return;
     Line *cur = text->head;
     while (cur != NULL) {
         Line *next = cur->next;
         line_destroy(cur);
         cur = next;
     }
+    free(text->filename);
 }
 
 void text_debug(const Text * text) {
     Line *cur = text->head;
     while (cur != NULL) {
-        printf("%s\n", cur->text);
+        printf("%.3d: <%s> (%lu)\n", cur->number, cur->text->str, cur->text->len);
         cur = cur->next;
     }
 }

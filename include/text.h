@@ -1,39 +1,44 @@
 #ifndef MIPS_ASSEMBLER_TEXT_H
 #define MIPS_ASSEMBLER_TEXT_H
+#include "strings.h"
 
 /* === TYPES === */
 
 typedef struct Line Line;
 typedef struct Text Text;
 
-// TODO: update this to use a String
 struct Line {
-    unsigned int len;
-    unsigned int cap;
-
-    char *text;
+    String *text;
     unsigned int number;
-    char *filename;
 
-    void *next;
-    void *prev;
+    Line *next;
+    Line *prev;
 };
 
 struct Text {
     Line *head;
     Line *tail;
-    unsigned int len;
+    size_t len;
+    char *filename;
 };
 
 /* === METHODS === */
 
-int line_init(Line *line, const char *fileName);
+int line_init(Line *line);
 
-int line_add_char(Line *line, char c);
+int line_append(Line *line, char c);
+
+int line_insert(Line *str, size_t index, const char *c);
+
+int line_append_str(Line *str, const char *c);
+
+char *line_get_str(const Line *str);
+
+int line_cpy(Line *dest, const Line *src);
 
 void line_destroy(Line *line);
 
-int text_init(Text *text);
+int text_init(Text *text, const char *fileName);
 
 int text_add(Text *text, Line line);
 

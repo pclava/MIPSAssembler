@@ -35,6 +35,13 @@ int mt_init(MacroTable *table) {
 
 int mt_add(MacroTable *table, const Macro macro) {
     unsigned long index = hash_key(macro.name, MACRO_TABLE_LENGTH);
+
+    if (table->size >= MACRO_TABLE_LENGTH) {
+        raise_error(ARGS_INV, NULL, __FILE__);
+        error_context("assembler currently supports up to 256 macros at a time");
+        return 0;
+    }
+
     while (table->buckets[index].inUse) {
         if (strcmp(table->buckets[index].macro.name, macro.name) == 0) {
             raise_error(DUPL_DEF, macro.name, __FILE__);
@@ -50,6 +57,7 @@ int mt_add(MacroTable *table, const Macro macro) {
     return 1;
 }
 
+// Returns index in hash table, or MACRO_TABLE_LENGTH
 unsigned long mt_exists(const MacroTable *table, const char *name) {
     unsigned long index = hash_key(name, MACRO_TABLE_LENGTH);
     if (!table->buckets[index].inUse) {
@@ -76,35 +84,113 @@ Macro * mt_get(const MacroTable *table, const char *name) {
     return &table->buckets[index].macro;
 }
 
+// Does not check bounds!
+Macro * mt_get_at(const MacroTable *table, unsigned long index) {
+    return &table->buckets[index].macro;
+}
+
 void mt_destroy(const MacroTable *t) {
-    free(t->buckets);
+    for (size_t i = 0; i < MACRO_TABLE_LENGTH; i++) {
+        if (t->buckets[i].inUse) {
+            Line *cur = t->buckets[i].macro.definition;
+            while (cur != NULL) {
+                Line *next = cur->next;
+                line_destroy(cur);
+                cur = next;
+            }
+        }
+    }
 }
 
 void mt_debug(const MacroTable *table) {
     for (int i = 0; i < MACRO_TABLE_LENGTH; i++) {
         if (table->buckets[i].inUse) {
+            printf("at index %d: ", i);
             macro_debug(&table->buckets[i].macro);
         }
     }
 }
 
+char *macro_get_constant(const Macro *macro) {
+    return line_get_str(macro->definition);
+}
+
 void macro_debug(const Macro *m) {
-    printf("macro \"%s\"\n", m->name);
-    Line *cur = m->definition_start;
+    printf("macro \"%s\" (%lu)\n", m->name, m->definition_length);
+    Line *cur = m->definition;
     for (size_t i = 0; i < m->definition_length; i++) {
-        printf("%s", cur->text);
+        printf("\t%s\n", line_get_str(cur));
         cur = cur->next;
     }
 }
 
-// Returns last line (.end_macro ...)
-Line *define_macro(Macro *macro, const Line *line) {
-
+int define_constant(Macro *macro, const Line *line) {
     memset(macro, '\0', sizeof(Macro));
+    macro->type = CONSTANT;
 
     // Copy string to buffer
-    char buf[strlen(line->text)+1];
-    strcpy(buf,line->text);
+    char *text = line_get_str(line);
+    if (text == NULL) return 0;
+    char buf[strlen(text)+1];
+    strcpy(buf,text);
+
+    // Tokenize
+    char *token = tokenize(buf, ' ');
+    if (strcmp(token, ".eqv") != 0 && strcmp(token, ".define") != 0) return 0;
+
+    // Get name
+    token = tokenize(NULL, ' ');
+    if (token == NULL || strlen(token) >= MACRO_SIZE) {
+        raise_error(ARGS_INV, NULL, __FILE__);
+        return 0;
+    }
+    strcpy(macro->name, token);
+    // Ensure name is wholly symbol valid
+    if (!isalpha(macro->name[0])) {
+        raise_error(SYMBOL_INV, macro->name, __FILE__);
+        return 0;
+    }
+    for (size_t i = 1; i < strlen(macro->name); i++) {
+        if (!issymbol(macro->name[i])) {
+            raise_error(SYMBOL_INV, macro->name, __FILE__);
+            return 0;
+        }
+    }
+
+    // Read value
+    token = tokenize(NULL, ' ');
+    if (token == NULL) {
+        raise_error(ARGS_INV, NULL, __FILE__);
+        return 0;
+    }
+    // Add rest of string as a Line
+    Line *new = malloc(sizeof(Line));
+    if (new == NULL) {
+        raise_error(MEM, NULL, __FILE__);
+        return 0;
+    }
+    try(line_init(new), 0);
+    macro->definition = new;
+    macro->definition_length = 1;
+    while (token != NULL) {
+        line_append_str(new, token);
+        token = tokenize(NULL, ' ');
+        if (token != NULL) line_append(new, ' ');
+    }
+
+    return 1;
+}
+
+// Returns last line (.end_macro ...)
+Line *define_macro(Macro *macro, const Line *line) {
+    memset(macro, '\0', sizeof(Macro));
+    macro->type = FUNCTION;
+
+    // Copy string to buffer
+    char *text = line_get_str(line);
+    if (text == NULL) return NULL;
+    char buf[strlen(text)+1];
+    strcpy(buf,text);
 
     // Tokenize
     char *token = tokenize(buf, ' ');
@@ -117,18 +203,22 @@ Line *define_macro(Macro *macro, const Line *line) {
         return NULL;
     }
     strcpy(macro->name, token);
-    // Ensure name (and later arguments) are wholly alphanum
-    for (size_t i = 0; i < strlen(macro->name); i++) {
-        if (!isalnum(macro->name[i])) {
+    // Ensure name (and later arguments) are wholly symbol valid
+    if (!isalpha(macro->name[0])) {
+        raise_error(SYMBOL_INV, macro->name, __FILE__);
+        return NULL;
+    }
+    for (size_t i = 1; i < strlen(macro->name); i++) {
+        if (!issymbol(macro->name[i])) {
             raise_error(SYMBOL_INV, macro->name, __FILE__);
             return NULL;
         }
     }
 
-    // Get argument names (up to 32 arguments should be plenty)
+    // Get argument names (up to 3)
     token = tokenize(NULL, ' ');
     size_t argc = 0;
-    while (argc < 32) {
+    while (argc < 3) {
         if (token == NULL) break;
 
         if (strlen(token) >= 32 || token[0] != '%') {
@@ -152,20 +242,35 @@ Line *define_macro(Macro *macro, const Line *line) {
 
         token = tokenize(NULL, ' ');
     }
-    if (argc >= 32) {
+    if (argc > 3) {
         raise_error(ARGS_INV, NULL, __FILE__);
         return NULL;
     }
 
-    // Read remaining lines
     Line *temp = line->next;
     if (temp == NULL) {
         raise_error(ARGS_INV, NULL, __FILE__);
         return NULL;
     }
-    macro->definition_start = temp;
+    Line *cur = NULL;
+
     macro->definition_length = 0;
-    while (strcmp(temp->text, ".end_macro") != 0) {
+    while (strcmp(line_get_str(temp), ".end_macro") != 0) {
+
+        Line *new = malloc(sizeof(Line));
+        if (new == NULL) {
+            raise_error(MEM, NULL, __FILE__);
+            return NULL;
+        }
+        try(line_init(new), NULL);
+        try(line_cpy(new, temp), NULL);
+        if (cur != NULL) {
+            cur->next = new;
+            new->prev = cur;
+        } else {
+            macro->definition = new;
+        }
+        cur = new;
 
         macro->definition_length++;
 
@@ -176,31 +281,39 @@ Line *define_macro(Macro *macro, const Line *line) {
         }
     }
 
+    if (macro->definition_length == 0) {
+        free(macro->definition);
+        raise_error(ARGS_INV, NULL, __FILE__);
+        error_context("empty macro");
+        return NULL;
+    }
+
     return temp;
 }
 
-int insert_macro(Text *text_list, const MacroTable *table, const char *name, Line *line) {
+// Inserts the macro after the given line. Does not touch given line
+int insert_macro(Text *text_list, Macro *macro, Line *line) {
 
-    // Get macro
-    Macro *macro = mt_get(table, name);
-    if (macro == NULL) return 0;
+    if (macro->type != FUNCTION) return 0;
 
     // Copy text to buffer
-    char buf[strlen(line->text)+1];
-    strcpy(buf,line->text);
+    char *text = line_get_str(line);
+    if (text == NULL) return 0;
+    char buf[strlen(text)+1];
+    strcpy(buf,text);
 
-    // Retrieve arguments (up to 32 arguments of 32 characters each)
+    // Retrieve arguments (up to 3 arguments of 32 characters each)
     char args[MACRO_SIZE][MACRO_SIZE];
     memset(args, '\0', sizeof(args));
     char *token = tokenize(buf, ' ');
     // Iterate until we get back to the name (skipping labels)
-    while (strcmp(token, name) != 0) {
+    while (strcmp(token, macro->name) != 0) {
         token = tokenize(NULL, ' ');
     }
     // Copy over arguments
     token = tokenize(NULL, ' ');
     size_t argc = 0;
-    while (argc < 32) {
+    while (argc < 3) {
         if (token == NULL) break;
 
         if (strlen(token) >= 32) {
@@ -212,13 +325,13 @@ int insert_macro(Text *text_list, const MacroTable *table, const char *name, Lin
 
         token = tokenize(NULL, ' ');
     }
-    if (argc >= 32) {
+    if (argc >= 3) {
         raise_error(ARGS_INV, NULL, __FILE__);
         return 0;
     }
 
     // Translate and insert macro
-    Line *new_line = macro->definition_start;
+    Line *new_line = macro->definition;
     Line *before = line;
     for (size_t i = 0; i < macro->definition_length; i++) {
         // For each line in the definition
@@ -227,13 +340,14 @@ int insert_macro(Text *text_list, const MacroTable *table, const char *name, Lin
 
         // Initialize new line
         Line to_insert;
-        line_init(&to_insert, line->filename);
+        line_init(&to_insert);
         to_insert.number = line->number;
 
         // Read definition line
         char c;
         int index=0;
-        while ((c = new_line->text[index++]) != '\0') {
+        text = line_get_str(new_line);
+        while ((c = text[index++]) != '\0') {
             // Loop until null
 
             // If percent
@@ -244,24 +358,24 @@ int insert_macro(Text *text_list, const MacroTable *table, const char *name, Lin
                 memset(argbuf, '\0', sizeof(argbuf));
                 argbuf[0] = '%';
                 int j = 1;
-                while (is_symbol(c = new_line->text[index++])) {
+                while (issymbol(c = text[index++])) {
                     argbuf[j++] = c;
                 }
                 const char end_char = c;
 
                 // skip the hi and lo operators
                 if (strcmp(argbuf, "%lo") == 0) {
-                    line_add_char(&to_insert, '%');
-                    line_add_char(&to_insert, 'l');
-                    line_add_char(&to_insert, 'o');
-                    line_add_char(&to_insert, end_char);
+                    line_append(&to_insert, '%');
+                    line_append(&to_insert, 'l');
+                    line_append(&to_insert, 'o');
+                    line_append(&to_insert, end_char);
                     continue;
                 }
                 if (strcmp(argbuf, "%hi") == 0) {
-                    line_add_char(&to_insert, '%');
-                    line_add_char(&to_insert, 'h');
-                    line_add_char(&to_insert, 'i');
-                    line_add_char(&to_insert, end_char);
+                    line_append(&to_insert, '%');
+                    line_append(&to_insert, 'h');
+                    line_append(&to_insert, 'i');
+                    line_append(&to_insert, end_char);
                     continue;
                 }
 
@@ -278,17 +392,17 @@ int insert_macro(Text *text_list, const MacroTable *table, const char *name, Lin
 
                 // Real argument is args[res]; copy that
                 for (size_t k = 0; k < strlen(args[res]); k++) {
-                    line_add_char(&to_insert, args[res][k]);
+                    line_append(&to_insert, args[res][k]);
                 }
 
                 // Add space
-                line_add_char(&to_insert, end_char);
+                line_append(&to_insert, end_char);
             }
 
             // Otherwise insert normally
-            else line_add_char(&to_insert, c);
+            else line_append(&to_insert, c);
         }
-        line_add_char(&to_insert, '\0'); // to be safe
+        line_append(&to_insert, '\0'); // doesn't hurt
 
         // Insert into text
         before = text_insert(text_list, to_insert, before);
@@ -322,9 +436,7 @@ int li(const Instruction instruction, InstructionList* instructions) {
         i1.registers[1] = 0;
         i1.registers[2] = 255;
         i1.imm = imm;
-        if (add_instruction(instructions, i1) == 0) {
-            return 0;
-        }
+        try(add_instruction(instructions, i1), 0);
         return 1;
     }
     // 32-bit
@@ -351,9 +463,8 @@ int li(const Instruction instruction, InstructionList* instructions) {
     i2.line = instruction.line;
     i2.imm = loImm;
 
-    if (add_instruction(instructions, i1) == 0 || add_instruction(instructions, i2) == 0) {
-        return 0;
-    }
+    try(add_instruction(instructions, i1), 0);
+    try(add_instruction(instructions, i2), 0);
     return 2;
 }
 

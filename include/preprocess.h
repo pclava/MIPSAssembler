@@ -7,6 +7,6 @@
 
 FILE * open_file(const char *path);
 
-int preprocess(FILE *inp, const char *path, Text *text);
+int preprocess(FILE *inp, Text *text);
 
 #endif //MIPS_ASSEMBLER_PREPROCESS_H

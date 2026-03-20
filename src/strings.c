@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-// note string is guaranteed to be filled with null bytes after str[len]
+// note: string is guaranteed to be filled with null bytes after str[len]
 
 static int str_resize(String *str, size_t size) {
     str->cap = size;
@@ -40,12 +40,16 @@ void string_destroy(String *str) {
 
 int string_append(String *str, char c) {
     if (str->len + 1 >= str->cap) {
-        if (str_resize(str, str->cap * 2) == 0) return 0;
+        try(str_resize(str, str->cap * 2), 0);
     }
 
-    str->str[str->len] = c;
+    string_set(str, str->len, c);
     str->len++;
     return 1;
+}
+
+int string_append_string(String *str, const char *c) {
+    return string_insert(str, str->len, c);
 }
 
 // Does not check bounds!
@@ -53,15 +57,27 @@ char string_get(const String *str, size_t index) {
     return str->str[index];
 }
 
-void string_insert(const String *str, size_t index, char c) {
+void string_set(const String *str, size_t index, char c) {
     str->str[index] = c;
+}
+
+int string_insert(String *str, size_t index, const char *src) {
+    size_t len = strlen(src);
+    if (str->len + len >= str->cap) {
+        try(str_resize(str, str->cap * 2 + len), 0)
+    }
+
+    memmove(&str->str[index+len], &str->str[index], str->len+1-index);
+    memcpy(&str->str[index], src, len);
+    str->len += len;
+    return 1;
 }
 
 // Writes src to dst, resizing if necessary
 int string_cpy_to(String *dst, const char *src) {
     const size_t l = strlen(src);
     if (dst->cap < l) {
-        if (str_resize(dst, l+1) == 0) return 0;
+        try(str_resize(dst, l+2), 0);
     }
     strcpy(dst->str, src);
     dst->len = l;
