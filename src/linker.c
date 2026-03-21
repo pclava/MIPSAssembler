@@ -21,6 +21,10 @@ uint32_t get_final_address(const Symbol symbol, const uint32_t object_offset) {
             return TEXT_START + object_offset + symbol.offset;
         case DATA:
             return DATA_START + object_offset + symbol.offset;
+        case KTEXT:
+            return KTEXT_START + object_offset + symbol.offset;
+        case KDATA:
+            return KDATA_START + object_offset + symbol.offset;
         default:
             return 0;
     }
@@ -37,23 +41,36 @@ void file_destroy(const SourceFile *file) {
 
 int relocate(const SourceFile *source, const struct mof_relocation relocation, uint32_t final_address) {
     if (relocation.segment == UNDEF) return 0;
-    const uint32_t instr_addr = TEXT_START + source->text_offset + relocation.offset;   // Address of instruction needed relocation (ignored if in data segment)
-    const uint32_t instr_index = relocation.offset / 4; // index in local text segment
     struct mof_file file = source->file;
+    uint32_t instr_addr = 0;
+    uint32_t instr_index = relocation.offset / 4;
+    uint32_t *text = file.text;
+    uint8_t *data = file.data;
+    if (relocation.segment == TEXT) {
+        instr_addr = TEXT_START + source->text_offset + relocation.offset;
+        text = file.text;
+        data = file.data;
+    }
+    else if (relocation.segment == KTEXT) {
+        instr_addr = KTEXT_START + source->text_offset + relocation.offset;
+        text = file.ktext;
+        data = file.kdata;
+    }
+
     switch (relocation.type) {
         case R_32:
-            if (relocation.segment != DATA) {
+            if (relocation.segment != DATA && relocation.segment != KDATA) {
                 fprintf(stderr, "Error linking %s: attempted R_32 relocation outside data segment\n", source->name);
                 return 0;
             }
             // Replace bytes little-endian
-            file.data[relocation.offset] = final_address & 0xff;
-            file.data[relocation.offset + 1] = final_address >> 8 & 0xff;
-            file.data[relocation.offset + 2] = final_address >> 16 & 0xff;
-            file.data[relocation.offset + 3] = final_address >> 24 & 0xff;
+            data[relocation.offset] = final_address & 0xff;
+            data[relocation.offset + 1] = final_address >> 8 & 0xff;
+            data[relocation.offset + 2] = final_address >> 16 & 0xff;
+            data[relocation.offset + 3] = final_address >> 24 & 0xff;
             break;
         case R_26:
-            if (relocation.segment != TEXT) {
+            if (relocation.segment != TEXT && relocation.segment != KTEXT) {
                 fprintf(stderr, "Error linking %s: attempted R_26 relocation outside text segment\n", source->name);
                 return 0;
             }
@@ -63,11 +80,11 @@ int relocate(const SourceFile *source, const struct mof_relocation relocation, u
                 return 0;
             }
             // Zero out lower 26 bits and insert address
-            file.text[instr_index] &= 0xfc000000;
-            file.text[instr_index] |= (final_address & 0x0fffffff) >> 2;
+            text[instr_index] &= 0xfc000000;
+            text[instr_index] |= (final_address & 0x0fffffff) >> 2;
             break;
         case R_PC16:
-            if (relocation.segment != TEXT) {
+            if (relocation.segment != TEXT && relocation.segment != KTEXT) {
                 fprintf(stderr, "Error linking %s: attempted R_PC16 relocation outside text segment\n", source->name);
                 return 0;
             }
@@ -77,24 +94,24 @@ int relocate(const SourceFile *source, const struct mof_relocation relocation, u
                 fprintf(stderr, "Error linking %s: branch target out of range\n", source->name);
                 return 0;
             }
-            file.text[instr_index] &= 0xffff0000;
-            file.text[instr_index] |= (uint16_t) dist;
+            text[instr_index] &= 0xffff0000;
+            text[instr_index] |= (uint16_t) dist;
             break;
         case R_HI16:
-            if (relocation.segment != TEXT) {
+            if (relocation.segment != TEXT && relocation.segment != KTEXT) {
                 fprintf(stderr, "Error linking %s: attempted R_HI16 relocation outside text segment\n", source->name);
                 return 0;
             }
-            file.text[instr_index] &= 0xffff0000;
-            file.text[instr_index] |= final_address >> 16;
+            text[instr_index] &= 0xffff0000;
+            text[instr_index] |= final_address >> 16;
             break;
         case R_LO16:
-            if (relocation.segment != TEXT) {
+            if (relocation.segment != TEXT && relocation.segment != KTEXT) {
                 fprintf(stderr, "Error linking %s: attempted R_LO16 relocation outside text segment\n", source->name);
                 return 0;
             }
-            file.text[instr_index] &= 0xffff0000;
-            file.text[instr_index] |= final_address & 0x0000ffff;
+            text[instr_index] &= 0xffff0000;
+            text[instr_index] |= final_address & 0x0000ffff;
             break;
         default:
             fprintf(stderr, "Error linking %s: unrecognized relocation directive\n", source->name);
@@ -108,13 +125,14 @@ int file_relocation(const SourceFile *source, const SymbolTable *global_symbols)
     const char *strtab = source->file.strings;
     const uint32_t text_offset = source->text_offset;
     const uint32_t data_offset = source->data_offset;
+    const uint32_t ktext_offset = source->ktext_offset;
+    const uint32_t kdata_offset = source->kdata_offset;
     const uint32_t relocation_table_size = source->file.hdr.rels / MOF_RELOCSIZE;
     for (uint32_t i = 0; i < relocation_table_size; i++) {
         const struct mof_relocation relocation = relocation_table[i];
 
         // Get dependency
         const char *dependency_name = get_string(strtab, relocation.index);
-        // const Symbol *dependency = st_get_symbol_by_index(source->symbol_table, strtab, dependency_name);
         const Symbol *dependency = st_get_symbol(source->symbol_table, dependency_name);
         if (dependency == NULL) {
             raise_error(TOKEN_ERR, dependency_name, source->name);
@@ -129,6 +147,12 @@ int file_relocation(const SourceFile *source, const SymbolTable *global_symbols)
                 break;
             case DATA:
                 final_address = get_final_address(*dependency, data_offset);
+                break;
+            case KTEXT:
+                final_address = get_final_address(*dependency, ktext_offset);
+                break;
+            case KDATA:
+                final_address = get_final_address(*dependency, kdata_offset);
                 break;
             case UNDEF:
                 // Check global symbol table and update dependency
@@ -150,11 +174,23 @@ int file_relocation(const SourceFile *source, const SymbolTable *global_symbols)
                 return 0;
         }
 
-        // Resolve relocation
-        if (relocate(source, relocation, final_address) == 0) {
-            fprintf(stderr, "Error linking %s: relocation failed\n", source->name);
-            return 0;
+        // Prevent user space from seeing symbols in kernel space, and vice versa
+        // This is necessary because they share the same symbol and relocation tables,
+        // and we need to isolate user and kernel space
+        if (relocation.segment == TEXT || relocation.segment == DATA) {
+            if (dependency->segment == KTEXT || dependency->segment == KDATA) {
+                fprintf(stderr, "Error linking %s: user space attempted to access kernel space\n", source->name);
+                return 0;
+            }
         }
+        else if (relocation.segment == KTEXT || relocation.segment == KDATA) {
+            if (dependency->segment == TEXT || dependency->segment == DATA) {
+                fprintf(stderr, "Error linking %s: kernel space attempted to access user space\n", source->name);
+                return 0;
+            }
+        }
+
+        try(relocate(source, relocation, final_address), 0);
     }
 
     return 1;
@@ -181,8 +217,14 @@ void load_symbols(SourceFile *file, SymbolTable *global_symbols) {
                 case TEXT:
                     final_offset = get_final_address(symbol, file->text_offset);
                     break;
+                case KTEXT:
+                    final_offset = get_final_address(symbol, file->ktext_offset);
+                    break;
                 case DATA:
                     final_offset = get_final_address(symbol, file->data_offset);
+                    break;
+                case KDATA:
+                    final_offset = get_final_address(symbol, file->kdata_offset);
                     break;
                 default: ;
             }
@@ -194,9 +236,11 @@ void load_symbols(SourceFile *file, SymbolTable *global_symbols) {
 }
 
 // Initializes SourceFile structure. Assumes internal mof_file already read
-int file_init(SourceFile *file, uint32_t text_offset, uint32_t data_offset) {
+int file_init(SourceFile *file, uint32_t text_offset, uint32_t data_offset, uint32_t ktext_offset, uint32_t kdata_offset) {
     file->text_offset = text_offset;
     file->data_offset = data_offset;
+    file->ktext_offset = ktext_offset;
+    file->kdata_offset = kdata_offset;
 
     SymbolTable *symbol_table = malloc(sizeof(SymbolTable));
     if (symbol_table == NULL) {
@@ -245,16 +289,17 @@ FILE * open_object_file(const char *path, struct mof_header *final_header, struc
     file->size = (uint32_t) size;
     file->text = mof_text(file->file);
     file->data = mof_data(file->file, &file->hdr);
+    file->ktext = mof_ktext(file->file, &file->hdr);
+    file->kdata = mof_kdata(file->file, &file->hdr);
     file->relocs = mof_relocs(file->file, &file->hdr);
     file->syms = mof_symbols(file->file, &file->hdr);
     file->strings = mof_strtab(file->file, &file->hdr);
 
-    // printf("%lu\n", size - MOF_STROFF(&file->hdr));
-    // strtab_debug2(file->strings, size - MOF_STROFF(&file->hdr));
-
     // Update final header
     final_header->text += file->hdr.text;
     final_header->data += file->hdr.data;
+    final_header->ktext += file->hdr.ktext;
+    final_header->kdata += file->hdr.kdata;
     return f;
 }
 
@@ -270,14 +315,18 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
 
     // Load files and prepare for relocation
     for (int file_index = 0; file_index < file_count; file_index++) {
-        uint32_t text_offset, data_offset;
+        uint32_t text_offset, data_offset, ktext_offset, kdata_offset;
         if (file_index == 0) {
             text_offset = 0;
             data_offset = 0;
+            ktext_offset = 0;
+            kdata_offset = 0;
         }
         else {
             text_offset = final_header.text;
             data_offset = final_header.data;
+            ktext_offset = final_header.ktext;
+            kdata_offset = final_header.kdata;
         }
 
         // Open file
@@ -292,7 +341,7 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
         }
 
         // Initialize source file
-        file_init(&file, text_offset, data_offset);
+        file_init(&file, text_offset, data_offset, ktext_offset, kdata_offset);
 
         // Load file (populate symbol table)
         load_symbols(&file, &global_symbols);
@@ -307,9 +356,11 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
     if (options.link_start) {
         const uint32_t text_offset = final_header.text;
         const uint32_t data_offset = final_header.data;
+        const uint32_t ktext_offset = final_header.ktext;
+        const uint32_t kdata_offset = final_header.kdata;
         FILE *f = open_object_file("__start.o", &final_header, &start.file);
         if (f == NULL) goto _link_failed;
-        file_init(&start, text_offset, data_offset);
+        file_init(&start, text_offset, data_offset, ktext_offset, kdata_offset);
         load_symbols(&start, &global_symbols);
         fclose(f);
     }
@@ -328,7 +379,7 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
     }
 
     // Create a global symbol __ENTRY pointing to program entry
-    if (st_add_symbol(&global_symbols, "__ENTRY", final_header.entry, TEXT, GLOBAL) ==0) goto _link_failed;
+    if (st_add_symbol(&global_symbols, "__ENTRY", final_header.entry, TEXT, GLOBAL) == 0) goto _link_failed;
 
     // At this point, every file has been read and we know every final address
 
@@ -359,6 +410,7 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
     if (options.link_start) {
         fwrite(start.file.text, sizeof(uint32_t), start.file.hdr.text/4, out);
     }
+
     // Write data segment(s)
     for (int file_index = 0; file_index < file_count; file_index++) {
         SourceFile file = source_files[file_index];
@@ -366,6 +418,24 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
     }
     if (options.link_start) {
         fwrite(start.file.data, sizeof(uint8_t), start.file.hdr.data, out);
+    }
+
+    // Write ktext segment(s)
+    for (int file_index = 0; file_index < file_count; file_index++) {
+        SourceFile file = source_files[file_index];
+        fwrite(file.file.ktext, sizeof(uint32_t), file.file.hdr.ktext/4, out);
+    }
+    if (options.link_start) {
+        fwrite(start.file.ktext, sizeof(uint32_t), start.file.hdr.ktext/4, out);
+    }
+
+    // Write kdata segment(s)
+    for (int file_index = 0; file_index < file_count; file_index++) {
+        SourceFile file = source_files[file_index];
+        fwrite(file.file.kdata, sizeof(uint8_t), file.file.hdr.kdata, out);
+    }
+    if (options.link_start) {
+        fwrite(start.file.kdata, sizeof(uint8_t), start.file.hdr.kdata, out);
     }
     fclose(out);
 
@@ -468,6 +538,8 @@ int main(int argc, char *argv[]) {
             remove(in_files[i]);
         }
     }
+
+    debug_binary(options.out_path);
 
     free(in_files);
     return 0;

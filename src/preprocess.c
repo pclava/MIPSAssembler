@@ -332,13 +332,11 @@ int preprocess_file(FILE *inp, Text *text, MacroTable *macro_table) {
         cur = next;
     }
 
-    // Process each line separately
+    // Resolve directives
     cur = text->head;
     while (cur != NULL) {
         ERROR_HANDLER.line = cur;
-        Line *next = cur->next;     // remember where
-
-        // Resolve directives
+        Line *next = cur->next;
         size_t end;
         int success = resolve_directives(cur, macro_table, &end);
         try(success, 0);
@@ -351,11 +349,18 @@ int preprocess_file(FILE *inp, Text *text, MacroTable *macro_table) {
                 l = n;
             }
             next = l;
-            goto _nextline;
         }
+        cur = next;
+    }
+
+    // Collapse labels and resolve macro usages
+    cur = text->head;
+    while (cur != NULL) {
+        ERROR_HANDLER.line = cur;
+        Line *next = cur->next;
 
         // Collapse lonely labels
-        success = collapse_labels(cur);
+        int success = collapse_labels(cur);
         try(success, 0);
         if (success == 2) {
             text_remove(text, cur);

@@ -56,8 +56,8 @@ int get_registers(unsigned int *out, const unsigned char *in, const int *order);
 
 uint32_t convert_rtype(Instruction instruction, const InstrDesc *desc);
 
-uint32_t convert_itype(Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, uint32_t current_offset);
+uint32_t convert_itype(Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, uint32_t current_offset, Segment current_segment);
 
-uint32_t convert_jtype(Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, uint32_t current_offset);
+uint32_t convert_jtype(Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, uint32_t current_offset, Segment current_segment);
 
 #endif //MIPS_ASSEMBLER_INSTRUCTIONS_H

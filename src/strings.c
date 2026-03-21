@@ -152,6 +152,7 @@ void strtab_debug(const StringTable *table) {
             printf("%c", table->table[i]);
         }
     }
+    printf("\n");
 }
 
 void strtab_debug2(const char *strtab, uint32_t size) {

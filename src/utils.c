@@ -610,6 +610,8 @@ void debug_binary(const char *path) {
     file.file = map;
     file.text = mof_text(file.file);
     file.data = mof_data(file.file, &file.hdr);
+    file.ktext = mof_ktext(file.file, &file.hdr);
+    file.kdata = mof_kdata(file.file, &file.hdr);
     file.relocs = mof_relocs(file.file, &file.hdr);
     file.syms = mof_symbols(file.file, &file.hdr);
     file.strings = mof_strtab(file.file, &file.hdr);
@@ -617,9 +619,11 @@ void debug_binary(const char *path) {
     printf("MOF file: text %u bytes, data %u bytes, relocation %u bytes, symbols %u bytes\n", file.hdr.text, file.hdr.data, file.hdr.rels, file.hdr.syms);
     printf("Program entry: 0x%.8x\n", file.hdr.entry);
 
+    printf("TEXT SEGMENT:\n");
     for (uint32_t i = 0; i < file.hdr.text/4; i++) {
         printf("0x%.8x: instruction 0x%.8x\n", TEXT_START+ i*4, file.text[i]);
     }
+    printf("DATA SEGMENT:\n");
     for (uint32_t i = 0; i < file.hdr.data; i++) {
         if (i % 4 == 3) {
             printf("%.2x\n0x%.8x: data ", file.data[i], DATA_START + i);
@@ -627,17 +631,36 @@ void debug_binary(const char *path) {
             printf("%.2x ", file.data[i]);
         }
     }
+    printf("KERNEL TEXT SEGMENT:\n");
+    for (uint32_t i = 0; i < file.hdr.ktext/4; i++) {
+        printf("0x%.8x: instruction 0x%.8x\n", KTEXT_START+ i*4, file.ktext[i]);
+    }
+    printf("KERNEL DATA SEGMENT:\n");
+    for (uint32_t i = 0; i < file.hdr.kdata; i++) {
+        if (i == 0) printf("0x%.8x: ", KDATA_START + i);
+        if (i % 4 == 3) {
+            printf("%.2x\n0x%.8x: ", file.kdata[i], KDATA_START + i);
+        } else {
+            printf("%.2x ", file.kdata[i]);
+        }
+    }
+    printf("\nRELOCATION INFORMATION:\n");
     for (uint32_t i = 0; i < file.hdr.rels/MOF_RELOCSIZE; i++) {
         struct mof_relocation reloc = file.relocs[i];
         const char *dependency = &file.strings[reloc.index];
-        char segment[6];
+        char segment[7];
         if (reloc.segment == TEXT) {
             strcpy(segment, ".text");
-        } else {
+        } else if (reloc.segment == DATA) {
             strcpy(segment, ".data");
+        } else if (reloc.segment == KDATA) {
+            strcpy(segment, ".kdata");
+        } else if (reloc.segment == KTEXT) {
+            strcpy(segment, ".ktext");
         }
         printf("address at %s+%d needs relocation of type %d for symbol %s\n", segment, reloc.offset, reloc.type, dependency);
     }
+    printf("SYMBOL TABLE:\n");
     for (uint32_t i = 0; i < file.hdr.syms/MOF_SYMSIZE; i++) {
         struct mof_symbol sym = file.syms[i];
         const char *name = &file.strings[sym.index];
@@ -649,6 +672,7 @@ void debug_binary(const char *path) {
             printf("%s: undefined, binding %d\n", name, sym.binding);
     }
 
+    printf("STRING TABLE:\n");
     strtab_debug2(file.strings, size - MOF_STROFF(&file.hdr));
 
     munmap(file.file, size);

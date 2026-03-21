@@ -262,7 +262,7 @@ uint32_t convert_rtype(Instruction instruction, const InstrDesc *desc) {
     return opcode | regs[0] | regs[1] | regs[2] | shamt | funct;
 }
 
-uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, const uint32_t current_offset) {
+uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, const uint32_t current_offset, const Segment current_segment) {
     if (desc->format != I) {
         raise_error(NOERR, NULL, __FILE__);
         return -1;
@@ -304,7 +304,7 @@ uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_tab
         Symbol *s = instruction.imm.symbol;
         if (s == NULL) return -1;
         RelocationEntry reloc;
-        try(re_init(&reloc, s->index, current_offset, TEXT, R_PC16), -1);
+        try(re_init(&reloc, s->index, current_offset, current_segment, R_PC16), -1);
         rt_add(reloc_table, reloc);
 
         imm = 0;
@@ -325,10 +325,10 @@ uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_tab
 
             switch (instruction.imm.modifier) {
                 case 1: // R_HI16
-                    try(re_init(&reloc, s->index, current_offset, TEXT, R_HI16), -1);
+                    try(re_init(&reloc, s->index, current_offset, current_segment, R_HI16), -1);
                     break;
                 case 2: // R_LO16
-                    try(re_init(&reloc, s->index, current_offset, TEXT, R_LO16), -1);
+                    try(re_init(&reloc, s->index, current_offset, current_segment, R_LO16), -1);
                     break;
                 default:
                     raise_error(ARGS_INV, NULL, __FILE__);
@@ -385,10 +385,10 @@ uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_tab
                 Symbol *s = instruction.imm.symbol;
                 if (s == NULL) return -1;
                 if (instruction.imm.modifier == 1) {
-                    try(re_init(&reloc, s->index, current_offset, TEXT, R_HI16), -1);
+                    try(re_init(&reloc, s->index, current_offset, current_segment, R_HI16), -1);
                 }
                 else if (instruction.imm.modifier == 2) {
-                    try(re_init(&reloc, s->index, current_offset, TEXT, R_LO16), -1);
+                    try(re_init(&reloc, s->index, current_offset, current_segment, R_LO16), -1);
                 }
                 else {
                     raise_error(ARGS_INV, NULL, __FILE__);
@@ -409,7 +409,7 @@ uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_tab
     return opcode | regs[0] | regs[1] | imm;
 }
 
-uint32_t convert_jtype(const Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, const uint32_t current_offset) {
+uint32_t convert_jtype(const Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, const uint32_t current_offset, const Segment current_segment) {
     if (desc->format != J) {
         raise_error(NOERR, NULL, __FILE__);
         return -1;
@@ -432,7 +432,7 @@ uint32_t convert_jtype(const Instruction instruction, RelocationTable *reloc_tab
     Symbol *s = instruction.imm.symbol;
     if (s == NULL) return -1;
     RelocationEntry reloc;
-    try(re_init(&reloc, s->index, current_offset, TEXT, R_26), -1);
+    try(re_init(&reloc, s->index, current_offset, current_segment, R_26), -1);
     rt_add(reloc_table, reloc);
 
     opcode <<= 26;
