@@ -89,13 +89,13 @@
 
 # Terminate program with exit code 0
 .macro done
-    li $v0, 10
+    li $v0, _SYSEXIT
     syscall
 .end_macro
 
 # Terminate program with an exit code
 .macro exit %imm
-    li $v0, 17
+    li $v0, _SYSEXIT2
     li $a0, %imm
     syscall
 .end_macro

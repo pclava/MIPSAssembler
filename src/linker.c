@@ -539,7 +539,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    debug_binary(options.out_path);
+    // debug_binary(options.out_path);
 
     free(in_files);
     return 0;
