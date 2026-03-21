@@ -7,6 +7,24 @@
 .define _KTEXT 0x80000000
 .define _KDATA 0x90000000
 
+.define _SYSPRINTINT    1
+.define _SYSPRINTSTR    4
+.define _SYSREADINT     5
+.define _SYSREADSTR     8
+.define _SYSSBRK        9
+.define _SYSEXIT        10
+.define _SYSPRINTCHR    11
+.define _SYSREADCHR     12
+.define _SYSOPENFILE    13
+.define _SYSREADFILE    14
+.define _SYSWRITEFILE   15
+.define _SYSCLOSEFILE   16
+.define _SYSEXIT2       17
+.define _SYSPRINTHEX    20
+.define _SYSPRINTBIN    21
+.define _SYSPRINTU      22
+.define _SYSBRK         23
+
 # Push to stack
 .macro push %r
     addiu $sp, $sp, -4
