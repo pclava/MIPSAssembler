@@ -53,6 +53,16 @@
     beq $0, $0, %lbl
 .end_macro
 
+# Branch on zero
+.macro beqz %r %lbl
+    beq %r, $0, %lbl
+.end_macro
+
+# Branch on not zero
+.macro bnez %r %lbl
+    bne %r, $0, %lbl
+.end_macro
+
 # Load address
 .macro la %r %lbl
     lui $at, %hi(%lbl)

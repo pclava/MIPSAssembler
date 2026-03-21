@@ -22,6 +22,8 @@
 #define REGISTER_COUNT 32
 extern const char *REGISTERS[REGISTER_COUNT];
 
+extern const char *C0_REGISTERS[REGISTER_COUNT];
+
 #define COMMENT '#'
 
 typedef enum mof_binding Binding;
@@ -76,6 +78,7 @@ typedef enum {
     ARGS_INV,       // Instruction given invalid arguments (no object)
     DUPL_DEF,       // Token defined multiple times (object = token)
     SIZE_ERR,       // Token too large (object = token)
+    INSTR_INV,      // Invalid instruction (object = mnemonic)
 
 } errcode;
 

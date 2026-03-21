@@ -46,12 +46,12 @@ int relocate(const SourceFile *source, const struct mof_relocation relocation, u
     uint32_t instr_index = relocation.offset / 4;
     uint32_t *text = file.text;
     uint8_t *data = file.data;
-    if (relocation.segment == TEXT) {
+    if (relocation.segment == TEXT || relocation.segment == DATA) {
         instr_addr = TEXT_START + source->text_offset + relocation.offset;
         text = file.text;
         data = file.data;
     }
-    else if (relocation.segment == KTEXT) {
+    else if (relocation.segment == KTEXT || relocation.segment == KDATA) {
         instr_addr = KTEXT_START + source->text_offset + relocation.offset;
         text = file.ktext;
         data = file.kdata;

@@ -144,7 +144,7 @@ int add_data(DataList *data_list, const Data data) {
 
     if (data_list->len >= data_list->cap) {
         data_list->cap *= 2;
-        Data *new = realloc(data_list->list, data_list->cap);
+        Data *new = realloc(data_list->list, data_list->cap*sizeof(Data));
         if (new == NULL) {
             raise_error(MEM, NULL, __FILE__);
             return 0;
@@ -179,7 +179,8 @@ void dl_debug(const DataList *data_list) {
 void data_debug(const Data data) {
     switch (data.type) {
         case WORD:
-            printf("WORD value=%d bytes=%d\n", data.value.word, data.size);
+            if (data.isSymbol) printf("WORD value=symbol number %d, bytes=%d\n", data.value.symbol->index, data.size);
+            else printf("WORD value=%d bytes=%d\n", data.value.word, data.size);
             break;
         case HALF:
             printf("HALF value=%d bytes=%d\n", data.value.half, data.size);

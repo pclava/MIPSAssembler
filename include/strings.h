@@ -35,6 +35,8 @@ void string_set(const String *str, size_t index, char c);
 
 int string_insert(String *str, size_t index, const char *src);
 
+int string_insert_char(String *str, size_t index, char c);
+
 int string_cpy_to(String *dst, const char *src);
 
 void string_cpy_from(char *dst, const String *src);

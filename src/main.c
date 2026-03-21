@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
             return 3;
         }
 
-        debug_binary(object_path);
+        // debug_binary(object_path);
         text_destroy(&text);
     }
 

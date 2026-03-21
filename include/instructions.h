@@ -17,10 +17,14 @@ typedef struct InstrDesc InstrDesc;
 typedef struct ITBucket ITBucket;
 typedef struct InstructionTable InstructionTable;
 
+#define COP0 0x10   // opcode for coprocessor 0 instructions
+#define C0 0b10000  // RS field for some COP0 instructions
+
 struct InstrDesc {
     char *mnemonic;
     int opcode;
     int funct;
+    int rs;     // used by coprocessor 0 instructions, 0 otherwise
     enum InstructionFormat format;
 
     // What registers the given order of registers correspond to (rs=0,rt=1,rd=2,none=-1)

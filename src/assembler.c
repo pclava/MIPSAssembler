@@ -31,7 +31,6 @@ Segment CURRENT_SEGMENT = TEXT;         // Keeps track of current segment being 
 
 // Parses a string into an Instruction. Does most of the heavy-lifting for this part of the assembler.
 int parse_instruction(const Assembler *assembler, Line *line, Instruction *instruction) {
-    // const char *line_text = line->text;
     const char *line_text = line_get_str(line);
     if (line_text == NULL) return 0;
     memset(instruction->mnemonic, '\0', sizeof(instruction->mnemonic));
@@ -113,8 +112,9 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
                 argc++;
             }
 
-            // Argument isn't a register, so assume it's an immediate
+            // If argument doesn't start with $, assume immediate
             else {
+
                 is_imm:
                 instruction->imm = parse_imm(token, assembler->symbol_table);
                 if (instruction->imm.modifier == 255) {
@@ -354,6 +354,7 @@ int read_data(const Assembler *assembler, const Line *line) {
                 else if (CURRENT_DIRECTIVE == STRING_NT) {
                     data.size = string_length+1;
                 }
+
                 if (process_data(&data, CURRENT_DIRECTIVE, argument, assembler->symbol_table) == 0) {
                     free(argument);
                     return 0;
@@ -380,6 +381,7 @@ int read_data(const Assembler *assembler, const Line *line) {
                     free(argument);
                     return 0;
                 }
+
             }
             argc++;
             memset(labels, '\0', sizeof(labels));
@@ -748,6 +750,7 @@ int assemble(Text *preprocessed, const char *output) {
     }
 
     // dl_debug(assembler.data_list);
+    // dl_debug(assembler.kernel_data);
     // st_debug(assembler.symbol_table);
     // il_debug(assembler.instruction_list);
 
@@ -757,7 +760,7 @@ int assemble(Text *preprocessed, const char *output) {
     }
 
     // st_debug(assembler.symbol_table);
-    rt_debug(assembler.relocation_table, assembler.symbol_table);
+    // rt_debug(assembler.relocation_table, assembler.symbol_table);
 
     assembler_destroy(&assembler);
     return 1;
