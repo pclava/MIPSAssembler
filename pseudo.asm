@@ -4,7 +4,7 @@
 .define _DATA 0x10010000
 .define _STACK 0x7fffffff
 .define _HEAP 0x10080000
-.define _KTEXT 0x80000000
+.define _KTEXT 0x80000180
 .define _KDATA 0x90000000
 
 .define _SYSPRINTINT    1
