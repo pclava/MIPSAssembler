@@ -95,12 +95,15 @@ int resolve_macros(Line *line, MacroTable *macro_table, Text *text) {
 
         _add_and_continue:
 
-        // Get character that was used as delimiter, so we can add it back
+        // Get character that were used as delimiter, so we can add them back
         // Note that sanitizer guarantees that spaces around parentheses are removed
         i = token-1-buf;    // index of previous delimiter
         if (i >= 0) {
-            char c = oldstr[i];
-            try(string_append(new, c), 0);
+            // Add skipped characters
+            for (long j = (long) new->len; j <= i; j++) {
+                char c = oldstr[j];
+                try(string_append(new, c), 0);
+            }
         }
         try(string_append_string(new, token), 0);
         token = strtok(NULL, " ()");
@@ -259,8 +262,8 @@ int sanitize(Line *line) {
             continue;
         }
 
-        if ((oldstr[i] == '(' || oldstr[i] == ')') && !reading_string) {
-            if (prev_wsp) { // remove previous whitespace
+        if (i != 0 && (oldstr[i] == '(' || oldstr[i] == ')') && !reading_string) {
+            if (prev_wsp && new->str[new->len-1] != '(' && new->str[new->len-1] != ')' ) { // remove previous whitespace
                 new->len--;
                 new->str[new->len] = '\0';
             }
@@ -332,13 +335,11 @@ int preprocess_file(FILE *inp, Text *text, MacroTable *macro_table) {
         cur = next;
     }
 
-    // Process each line separately
+    // Resolve directives
     cur = text->head;
     while (cur != NULL) {
         ERROR_HANDLER.line = cur;
-        Line *next = cur->next;     // remember where
-
-        // Resolve directives
+        Line *next = cur->next;
         size_t end;
         int success = resolve_directives(cur, macro_table, &end);
         try(success, 0);
@@ -351,11 +352,18 @@ int preprocess_file(FILE *inp, Text *text, MacroTable *macro_table) {
                 l = n;
             }
             next = l;
-            goto _nextline;
         }
+        cur = next;
+    }
+
+    // Collapse labels and resolve macro usages
+    cur = text->head;
+    while (cur != NULL) {
+        ERROR_HANDLER.line = cur;
+        Line *next = cur->next;
 
         // Collapse lonely labels
-        success = collapse_labels(cur);
+        int success = collapse_labels(cur);
         try(success, 0);
         if (success == 2) {
             text_remove(text, cur);

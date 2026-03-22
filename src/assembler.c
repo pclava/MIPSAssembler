@@ -25,12 +25,12 @@
 */
 
 enum DataType CURRENT_DIRECTIVE = WORD; // Keeps track of the type of data item being stored; assumes WORD by default
+Segment CURRENT_SEGMENT = TEXT;         // Keeps track of current segment being read; assmes TEXT by default
 
 /* === FIRST PASS TEXT SEGMENT === */
 
 // Parses a string into an Instruction. Does most of the heavy-lifting for this part of the assembler.
 int parse_instruction(const Assembler *assembler, Line *line, Instruction *instruction) {
-    // const char *line_text = line->text;
     const char *line_text = line_get_str(line);
     if (line_text == NULL) return 0;
     memset(instruction->mnemonic, '\0', sizeof(instruction->mnemonic));
@@ -75,17 +75,19 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
             }
 
             // Add to symbol table (assumes local, but if it exists as global, will preserve that binding)
-            try(st_add_symbol(assembler->symbol_table, label.str, assembler->instruction_list->text_offset, TEXT, LOCAL), 0);
+            if (CURRENT_SEGMENT == TEXT) {
+                try(st_add_symbol(assembler->symbol_table, label.str, assembler->instruction_list->text_offset, TEXT, LOCAL), 0);
+            } else if (CURRENT_SEGMENT == KTEXT) {
+                try(st_add_symbol(assembler->symbol_table, label.str, assembler->kernel_text->text_offset, KTEXT, LOCAL), 0);
+            }
         }
 
         // Read mnemonic. This will catch the first token not ending in ':' and set readMnemonic to true.
         else if (!readMnemonic) {
-
             if (len >= MNEMONIC_LENGTH) {
                 raise_error(SIZE_ERR, token, __FILE__);
                 return 0;
             }
-
             strcpy(instruction->mnemonic, token);
             readMnemonic = 1;
         }
@@ -110,8 +112,9 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
                 argc++;
             }
 
-            // Argument isn't a register, so assume it's an immediate
+            // If argument doesn't start with $, assume immediate
             else {
+
                 is_imm:
                 instruction->imm = parse_imm(token, assembler->symbol_table);
                 if (instruction->imm.modifier == 255) {
@@ -170,7 +173,12 @@ int read_text(const Assembler *assembler, Line *line) {
     instruction.line = line;
 
     // Add to instruction list
-    try(process_instruction(instruction, assembler->instruction_list), 0);
+    if (CURRENT_SEGMENT == TEXT) {
+        try(process_instruction(instruction, assembler->instruction_list), 0);
+    }
+    else if (CURRENT_SEGMENT == KTEXT) {
+        try(process_instruction(instruction, assembler->kernel_text), 0);
+    }
 
     return 1;
 }
@@ -197,6 +205,18 @@ int read_data(const Assembler *assembler, const Line *line) {
     char *argument = malloc(argument_size);
     if (argument == NULL) {
         raise_error(MEM, NULL, __FILE__);
+        return 0;
+    }
+
+    DataList *list = NULL;
+    if (CURRENT_SEGMENT == DATA) {
+        list = assembler->data_list;
+    }
+    else if (CURRENT_SEGMENT == KDATA) {
+        list = assembler->kernel_data;
+    }
+    else {
+        free(argument);
         return 0;
     }
 
@@ -257,7 +277,7 @@ int read_data(const Assembler *assembler, const Line *line) {
                 }
 
                 // Parse to integer
-                if (add_aligned(line, token, assembler->data_list) == 0) {
+                if (add_aligned(line, token, list) == 0) {
                     free(argument);
                     return 0;
                 }
@@ -265,7 +285,7 @@ int read_data(const Assembler *assembler, const Line *line) {
                 // Save label(s) (after alignment)
                 if (label_count != 0) {
                     for (size_t i = 0; i < label_count; i++) {
-                        if (st_add_symbol(assembler->symbol_table, labels[i].str, assembler->data_list->data_offset, DATA, LOCAL) == 0) {
+                        if (st_add_symbol(assembler->symbol_table, labels[i].str, list->data_offset, CURRENT_SEGMENT, LOCAL) == 0) {
                             free(argument);
                             return 0;
                         }
@@ -283,7 +303,7 @@ int read_data(const Assembler *assembler, const Line *line) {
                 // Save label(s) (before adding space)
                 if (label_count != 0) {
                     for (size_t i = 0; i < label_count; i++) {
-                        if (st_add_symbol(assembler->symbol_table, labels[i].str, assembler->data_list->data_offset, DATA, LOCAL) == 0) {
+                        if (st_add_symbol(assembler->symbol_table, labels[i].str, list->data_offset, CURRENT_SEGMENT, LOCAL) == 0) {
                             free(argument);
                             return 0;
                         }
@@ -291,7 +311,7 @@ int read_data(const Assembler *assembler, const Line *line) {
                 }
 
                 // Parse to integer
-                if (add_space(line, token, assembler->data_list) == 0) {
+                if (add_space(line, token, list) == 0) {
                     free(argument);
                     return 0;
                 }
@@ -334,13 +354,14 @@ int read_data(const Assembler *assembler, const Line *line) {
                 else if (CURRENT_DIRECTIVE == STRING_NT) {
                     data.size = string_length+1;
                 }
+
                 if (process_data(&data, CURRENT_DIRECTIVE, argument, assembler->symbol_table) == 0) {
                     free(argument);
                     return 0;
                 }
 
                 // Add any necessary padding
-                if (data_pad(data, assembler->data_list) == 0) {
+                if (data_pad(data, list) == 0) {
                     free(argument);
                     return 0;
                 }
@@ -348,7 +369,7 @@ int read_data(const Assembler *assembler, const Line *line) {
                 // Write the label(s)
                 if (label_count != 0) {
                     for (size_t i = 0; i < label_count; i++) {
-                        if (st_add_symbol(assembler->symbol_table, labels[i].str, assembler->data_list->data_offset, DATA, LOCAL) == 0) {
+                        if (st_add_symbol(assembler->symbol_table, labels[i].str, list->data_offset, CURRENT_SEGMENT, LOCAL) == 0) {
                             free(argument);
                             return 0;
                         }
@@ -356,13 +377,15 @@ int read_data(const Assembler *assembler, const Line *line) {
                 }
 
                 // Add to data list and increment data_addr
-                if (add_data(assembler->data_list, data) == 0) {
+                if (add_data(list, data) == 0) {
                     free(argument);
                     return 0;
                 }
+
             }
             argc++;
             memset(labels, '\0', sizeof(labels));
+            label_count = 0;
         }
 
         token = tokenize(NULL, ' ');
@@ -391,9 +414,9 @@ uint32_t convert_instruction(const Instruction instruction, const Assembler* ass
         case R:
             return convert_rtype(instruction, instruction_desc);
         case I:
-            return convert_itype(instruction, assembler->relocation_table, instruction_desc, current_addr);
+            return convert_itype(instruction, assembler->relocation_table, instruction_desc, current_addr, CURRENT_SEGMENT);
         case J:
-            return convert_jtype(instruction, assembler->relocation_table, instruction_desc, current_addr);
+            return convert_jtype(instruction, assembler->relocation_table, instruction_desc, current_addr, CURRENT_SEGMENT);
         default:
             raise_error(NOERR, NULL, __FILE__);
             return -1;
@@ -403,9 +426,17 @@ uint32_t convert_instruction(const Instruction instruction, const Assembler* ass
 // Goes through every instruction and writes its 32-bit machine code to the file. Returns 0 on failure
 int write_instruction_list(FILE *file, const Assembler *assembler) {
     uint32_t current_addr = 0;
+    const InstructionList *list;
+    if (CURRENT_SEGMENT == TEXT) {
+        list = assembler->instruction_list;
+    }
+    else if (CURRENT_SEGMENT == KTEXT) {
+        list = assembler->kernel_text;
+    }
+    else return 0;
 
-    for (size_t i = 0; i < assembler->instruction_list->len; i++) {
-        const Instruction instruction = assembler->instruction_list->list[i];
+    for (size_t i = 0; i < list->len; i++) {
+        const Instruction instruction = list->list[i];
         ERROR_HANDLER.line = instruction.line;
 
         // Convert to machine code
@@ -439,7 +470,7 @@ int write_data(FILE *file, Data data, RelocationTable *relocation_table, const u
             // TODO: byte and half
             case WORD:
                 data.value.word = 0;
-                re_init(&reloc, s->index, current_offset, DATA, R_32);
+                re_init(&reloc, s->index, current_offset, CURRENT_SEGMENT, R_32);
                 break;
             default:
                 raise_error(ARGS_INV, NULL, __FILE__);
@@ -481,8 +512,15 @@ int write_data(FILE *file, Data data, RelocationTable *relocation_table, const u
 // Goes through every Data structure in the list and writes it to file. Returns 0 on failure or -1 on file IO failure.
 int write_data_list(FILE *file, Assembler *assembler) {
     uint32_t current_offset = 0;
-    for (size_t i = 0; i < assembler->data_list->len; i++) {
-        const Data data = assembler->data_list->list[i];
+    DataList *list;
+    if (CURRENT_SEGMENT == DATA) {
+        list = assembler->data_list;
+    }
+    else if (CURRENT_SEGMENT == KDATA) {
+        list = assembler->kernel_data;
+    } else return 0;
+    for (size_t i = 0; i < list->len; i++) {
+        const Data data = list->list[i];
         ERROR_HANDLER.line = data.line;
 
         const int success = write_data(file, data, assembler->relocation_table, current_offset);
@@ -495,7 +533,7 @@ int write_data_list(FILE *file, Assembler *assembler) {
         fwrite(&x, sizeof(x), 1, file);
         current_offset++;
     }
-    assembler->data_list->data_offset = current_offset;
+    list->data_offset = current_offset;
     return 1;
 }
 
@@ -503,8 +541,6 @@ int write_data_list(FILE *file, Assembler *assembler) {
 
 // Parses the output of the preprocessor into the symbol table, instruction list, and data list.
 int assembler_first_pass(Assembler *assembler) {
-
-    Segment current_segment = TEXT;
 
     // Loop through each individual line in the file
     Line *line = assembler->preprocessed->head;
@@ -529,11 +565,19 @@ int assembler_first_pass(Assembler *assembler) {
             directive[j] = '\0';
 
             if (strcmp(directive, "text") == 0) {
-                current_segment = TEXT;
+                CURRENT_SEGMENT = TEXT;
                 goto continue_line;
             }
             if (strcmp(directive, "data") == 0) {
-                current_segment = DATA;
+                CURRENT_SEGMENT = DATA;
+                goto continue_line;
+            }
+            if (strcmp(directive, "ktext") == 0) {
+                CURRENT_SEGMENT = KTEXT;
+                goto continue_line;
+            }
+            if (strcmp(directive, "kdata") == 0) {
+                CURRENT_SEGMENT = KDATA;
                 goto continue_line;
             }
             if (strcmp(directive, "globl") == 0) {
@@ -558,19 +602,19 @@ int assembler_first_pass(Assembler *assembler) {
                 }
                 goto continue_line;
             }
-            if (current_segment != DATA) { // Any other directive must be in the data segment
+            if (CURRENT_SEGMENT != DATA && CURRENT_SEGMENT != KDATA) { // Any other directive must be in the data segment
                 raise_error(TOKEN_ERR, directive, __FILE__);
                 return 0;
             }
         }
 
         // TEXT
-        if (current_segment == TEXT) {
+        if (CURRENT_SEGMENT == TEXT || CURRENT_SEGMENT == KTEXT) {
             try(read_text(assembler, line), 0);
         }
 
         // DATA
-        else if (current_segment == DATA){
+        else if (CURRENT_SEGMENT == DATA || CURRENT_SEGMENT == KDATA) {
             try(read_data(assembler, line), 0);
         }
 
@@ -597,6 +641,7 @@ int assembler_second_pass(Assembler *assembler, const char *output) {
     fseek(file, sizeof(struct mof_header), SEEK_SET);
 
     // === Write Instructions ===
+    CURRENT_SEGMENT = TEXT;
     int success = write_instruction_list(file, assembler);
     if (success == 0) {
         if (ERROR_HANDLER.err_code == FILE_IO) {
@@ -607,6 +652,29 @@ int assembler_second_pass(Assembler *assembler, const char *output) {
     }
 
     // == Write Data ===
+    CURRENT_SEGMENT = DATA;
+    success = write_data_list(file, assembler);
+    if (success == 0) {
+        if (ERROR_HANDLER.err_code == FILE_IO) {
+            raise_error(FILE_IO, output, __FILE__);
+        }
+        fclose(file);
+        return 0;
+    }
+
+    // === Write Kernel Text ===
+    CURRENT_SEGMENT = KTEXT;
+    success = write_instruction_list(file, assembler);
+    if (success == 0) {
+        if (ERROR_HANDLER.err_code == FILE_IO) {
+            raise_error(FILE_IO, output, __FILE__);
+        }
+        fclose(file);
+        return 0;
+    }
+
+    // === Write Kernel Data ===
+    CURRENT_SEGMENT = KDATA;
     success = write_data_list(file, assembler);
     if (success == 0) {
         if (ERROR_HANDLER.err_code == FILE_IO) {
@@ -644,8 +712,10 @@ int assembler_second_pass(Assembler *assembler, const char *output) {
     header.magic = MOF_MAGIC;
     header.text = assembler->instruction_list->text_offset;
     header.data = assembler->data_list->data_offset;
-    header.syms = assembler->symbol_table->size * MOF_SYMSIZE;
+    header.ktext = assembler->kernel_text->text_offset;
+    header.kdata = assembler->kernel_data->data_offset;
     header.rels = assembler->relocation_table->len * MOF_RELOCSIZE;
+    header.syms = assembler->symbol_table->size * MOF_SYMSIZE;
     header.entry = TEXT_START;
     fwrite(&header, sizeof(header), 1, file);
 
@@ -680,6 +750,7 @@ int assemble(Text *preprocessed, const char *output) {
     }
 
     // dl_debug(assembler.data_list);
+    // dl_debug(assembler.kernel_data);
     // st_debug(assembler.symbol_table);
     // il_debug(assembler.instruction_list);
 
@@ -689,7 +760,7 @@ int assemble(Text *preprocessed, const char *output) {
     }
 
     // st_debug(assembler.symbol_table);
-    // rt_debug(assembler.relocation_table);
+    // rt_debug(assembler.relocation_table, assembler.symbol_table);
 
     assembler_destroy(&assembler);
     return 1;
@@ -697,6 +768,9 @@ int assemble(Text *preprocessed, const char *output) {
 
 // Allocates memory for and initializes the components of the assembler given the output of the preprocessor
 int assembler_init(Assembler *assembler, Text *preprocessed) {
+    CURRENT_SEGMENT = TEXT;
+    CURRENT_DIRECTIVE = WORD;
+
     assembler->preprocessed = preprocessed;
     assembler->symbol_table = NULL;
     assembler->data_list = NULL;
@@ -731,6 +805,24 @@ int assembler_init(Assembler *assembler, Text *preprocessed) {
     try(dl_init(data_list, 0), 0);
     assembler->data_list = data_list;
 
+    // Initialize kernel text
+    InstructionList *kernel_text = malloc(sizeof(InstructionList));
+    if (kernel_text == NULL) {
+        raise_error(MEM, NULL, __FILE__);
+        return 0;
+    }
+    try(il_init(kernel_text, 0), 0);
+    assembler->kernel_text = kernel_text;
+
+    // Initialize kernel data
+    DataList *kernel_data = malloc(sizeof(DataList));
+    if (kernel_data == NULL) {
+        raise_error(MEM, NULL, __FILE__);
+        return 0;
+    }
+    try(dl_init(kernel_data, 0), 0);
+    assembler->kernel_data = kernel_data;
+
     // Initialize instruction table
     InstructionTable *instruction_table = malloc(sizeof(InstructionTable));
     if (instruction_table == NULL) {
@@ -758,9 +850,17 @@ void assembler_destroy(Assembler *assembler) {
         dl_destroy(assembler->data_list);
         free(assembler->data_list);
     }
+    if (assembler->kernel_data != NULL) {
+        dl_destroy(assembler->kernel_data);
+        free(assembler->kernel_data);
+    }
     if (assembler->instruction_list != NULL) {
         il_destroy(assembler->instruction_list);
         free(assembler->instruction_list);
+    }
+    if (assembler->kernel_text != NULL) {
+        il_destroy(assembler->kernel_text);
+        free(assembler->kernel_text);
     }
     if (assembler->symbol_table != NULL) {
         st_destroy(assembler->symbol_table);
@@ -785,15 +885,31 @@ void assembler_debug(const Assembler *assembler) {
     }
 
     if (assembler->data_list != NULL) {
+        printf("User data:\n");
         dl_debug(assembler->data_list);
     } else {
         printf("No data list found\n");
     }
 
+    if (assembler->kernel_data != NULL) {
+        printf("Kernel data:\n");
+        dl_debug(assembler->kernel_data);
+    } else {
+        printf("No kernel data found\n");
+    }
+
     if (assembler->instruction_list != NULL) {
+        printf("User text:\n");
         il_debug(assembler->instruction_list);
     } else {
         printf("No instruction list found\n");
+    }
+
+    if (assembler->kernel_text != NULL) {
+        printf("Kernel text:\n");
+        il_debug(assembler->kernel_text);
+    } else {
+        printf("No kernel text found\n");
     }
 
     if (assembler->relocation_table != NULL) {

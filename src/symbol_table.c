@@ -205,9 +205,9 @@ void st_dump(const SymbolTable *t, const char *path) {
         return;
     }
 
-    // TEXT, DATA, UNDEF
+    // TEXT, DATA, KTEXT, KDATA, UNDEF
     // LOCAL, GLOBAL
-    char types[] = "tTdDuU";
+    char types[] = "tTdDkKxXuU";
 
     for (size_t i = 0; i < SYMBOL_TABLE_SIZE; i++) {
         const SymbolBucket *cur = t->buckets[i];

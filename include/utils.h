@@ -16,9 +16,13 @@
 
 #define TEXT_START 0x00400000
 #define DATA_START 0x10010000
+#define KTEXT_START 0x80000180
+#define KDATA_START 0x90000000
 
 #define REGISTER_COUNT 32
 extern const char *REGISTERS[REGISTER_COUNT];
+
+extern const char *C0_REGISTERS[REGISTER_COUNT];
 
 #define COMMENT '#'
 
@@ -74,6 +78,7 @@ typedef enum {
     ARGS_INV,       // Instruction given invalid arguments (no object)
     DUPL_DEF,       // Token defined multiple times (object = token)
     SIZE_ERR,       // Token too large (object = token)
+    INSTR_INV,      // Invalid instruction (object = mnemonic)
 
 } errcode;
 

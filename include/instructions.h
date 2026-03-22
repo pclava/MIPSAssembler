@@ -17,10 +17,14 @@ typedef struct InstrDesc InstrDesc;
 typedef struct ITBucket ITBucket;
 typedef struct InstructionTable InstructionTable;
 
+#define COP0 0x10   // opcode for coprocessor 0 instructions
+#define C0 0b10000  // RS field for some COP0 instructions
+
 struct InstrDesc {
     char *mnemonic;
     int opcode;
     int funct;
+    int rs;     // used by coprocessor 0 instructions, 0 otherwise
     enum InstructionFormat format;
 
     // What registers the given order of registers correspond to (rs=0,rt=1,rd=2,none=-1)
@@ -56,8 +60,8 @@ int get_registers(unsigned int *out, const unsigned char *in, const int *order);
 
 uint32_t convert_rtype(Instruction instruction, const InstrDesc *desc);
 
-uint32_t convert_itype(Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, uint32_t current_offset);
+uint32_t convert_itype(Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, uint32_t current_offset, Segment current_segment);
 
-uint32_t convert_jtype(Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, uint32_t current_offset);
+uint32_t convert_jtype(Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, uint32_t current_offset, Segment current_segment);
 
 #endif //MIPS_ASSEMBLER_INSTRUCTIONS_H

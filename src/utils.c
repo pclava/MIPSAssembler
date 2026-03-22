@@ -17,6 +17,11 @@ const char *REGISTERS[REGISTER_COUNT] = {
     "$sp", "$fp", "$ra"
 };
 
+const char *C0_REGISTERS[REGISTER_COUNT]  = {
+    "", "",  "",  "",  "",  "",  "",  "",  "$vaddr",  "",  "",  "",  "$status",  "$cause",  "$epc",  "",
+    "",  "",  "",  "",  "",  "",  "",  "",  "",  "",  "",  "",  "",  "",  "",  ""
+};
+
 // reads an immediate of the form %OPERATOR(SYMBOL)
 // where OPERATOR can be hi or lo
 // fills given Imm pointer and returns pointer to end of expression
@@ -149,8 +154,13 @@ Immediate parse_imm(const char * str, SymbolTable *symbol_table) {
         imm.intValue = (int32_t) n;
     }
 
-    // SYMBOL
+    // SYMBOL (and not reg-offset)
     else {
+        endptr = strchr(str, '(');
+        size_t index = endptr == NULL ? strlen(str) : endptr-str;
+        char buf[strlen(str)+1];
+        memset(buf, '\0', sizeof(buf));
+        strncpy(buf, str, index);
         // Finds the symbol or adds it if not found
         if (st_exists(symbol_table, str) == SYMBOL_TABLE_SIZE) {
             // Doesn't exist yet, add as local undefined. may be made global later
@@ -160,7 +170,7 @@ Immediate parse_imm(const char * str, SymbolTable *symbol_table) {
 
         imm.symbol = s;
         imm.type = SYMBOL;
-        return imm;
+        if (endptr == NULL) return imm;
     }
 
     if (*endptr == '\0') return imm;
@@ -292,7 +302,7 @@ void error(void) {
 
 // Provides more context to the error
 void error_context(const char * str) {
-    fprintf(stderr, "-> (%s)\n", str);
+    fprintf(stderr, "    -> (%s)\n", str);
 }
 
 void general_error(const errcode code, const char *file, const char * object) {
@@ -339,6 +349,9 @@ void assembler_error(const errcode code, const Line *line, const char * object) 
             break;
         case SIZE_ERR:
             fprintf(stderr, "-> token \"%s\" exceeds expected length\n", object);
+            break;
+        case INSTR_INV:
+            fprintf(stderr, "-> invalid operation \"%s\"\n", object);
             break;
         default:
             fprintf(stderr, "-> unrecognized error\n");
@@ -561,13 +574,23 @@ char * read_string(char *dst, size_t *dst_size, char *token, int *len) {
 
 // Returns the register number associated with a token beginning with '$'. Returns 255 on error.
 unsigned char get_register(const char *token) {
-    if (token[0] != '$') return 255;
     unsigned char j = 0;
+
+    // Check REGISTERS
     while (j < REGISTER_COUNT && strcmp(token, REGISTERS[j]) != 0) j++;
     if (j < REGISTER_COUNT) return j;
+    // Check C0_REGISTERS
+    j = 0;
+    while (j < REGISTER_COUNT && strcmp(token, C0_REGISTERS[j]) != 0) j++;
+    if (j < REGISTER_COUNT) return j;
+
+    // Could not find by name, assume register invoked by number, which requires initial $
+    if (token[0] != '$') return 255;
+
     char *endptr;
     const long n = strtol(&token[1], &endptr, 10);
     if (*endptr != '\0' || n < 0 || n > 31) return 255;
+
     return (unsigned char) n;
 }
 
@@ -610,6 +633,8 @@ void debug_binary(const char *path) {
     file.file = map;
     file.text = mof_text(file.file);
     file.data = mof_data(file.file, &file.hdr);
+    file.ktext = mof_ktext(file.file, &file.hdr);
+    file.kdata = mof_kdata(file.file, &file.hdr);
     file.relocs = mof_relocs(file.file, &file.hdr);
     file.syms = mof_symbols(file.file, &file.hdr);
     file.strings = mof_strtab(file.file, &file.hdr);
@@ -617,9 +642,11 @@ void debug_binary(const char *path) {
     printf("MOF file: text %u bytes, data %u bytes, relocation %u bytes, symbols %u bytes\n", file.hdr.text, file.hdr.data, file.hdr.rels, file.hdr.syms);
     printf("Program entry: 0x%.8x\n", file.hdr.entry);
 
+    printf("TEXT SEGMENT:\n");
     for (uint32_t i = 0; i < file.hdr.text/4; i++) {
         printf("0x%.8x: instruction 0x%.8x\n", TEXT_START+ i*4, file.text[i]);
     }
+    printf("DATA SEGMENT:\n");
     for (uint32_t i = 0; i < file.hdr.data; i++) {
         if (i % 4 == 3) {
             printf("%.2x\n0x%.8x: data ", file.data[i], DATA_START + i);
@@ -627,17 +654,36 @@ void debug_binary(const char *path) {
             printf("%.2x ", file.data[i]);
         }
     }
+    printf("KERNEL TEXT SEGMENT:\n");
+    for (uint32_t i = 0; i < file.hdr.ktext/4; i++) {
+        printf("0x%.8x: instruction 0x%.8x\n", KTEXT_START+ i*4, file.ktext[i]);
+    }
+    printf("KERNEL DATA SEGMENT:\n");
+    for (uint32_t i = 0; i < file.hdr.kdata; i++) {
+        if (i == 0) printf("0x%.8x: ", KDATA_START + i);
+        if (i % 4 == 3) {
+            printf("%.2x\n0x%.8x: ", file.kdata[i], KDATA_START + i);
+        } else {
+            printf("%.2x ", file.kdata[i]);
+        }
+    }
+    printf("\nRELOCATION INFORMATION:\n");
     for (uint32_t i = 0; i < file.hdr.rels/MOF_RELOCSIZE; i++) {
         struct mof_relocation reloc = file.relocs[i];
         const char *dependency = &file.strings[reloc.index];
-        char segment[6];
+        char segment[7];
         if (reloc.segment == TEXT) {
             strcpy(segment, ".text");
-        } else {
+        } else if (reloc.segment == DATA) {
             strcpy(segment, ".data");
+        } else if (reloc.segment == KDATA) {
+            strcpy(segment, ".kdata");
+        } else if (reloc.segment == KTEXT) {
+            strcpy(segment, ".ktext");
         }
         printf("address at %s+%d needs relocation of type %d for symbol %s\n", segment, reloc.offset, reloc.type, dependency);
     }
+    printf("SYMBOL TABLE:\n");
     for (uint32_t i = 0; i < file.hdr.syms/MOF_SYMSIZE; i++) {
         struct mof_symbol sym = file.syms[i];
         const char *name = &file.strings[sym.index];
@@ -649,6 +695,7 @@ void debug_binary(const char *path) {
             printf("%s: undefined, binding %d\n", name, sym.binding);
     }
 
+    printf("STRING TABLE:\n");
     strtab_debug2(file.strings, size - MOF_STROFF(&file.hdr));
 
     munmap(file.file, size);

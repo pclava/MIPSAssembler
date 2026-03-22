@@ -10,79 +10,87 @@ This handles the representation of the MIPS instruction set
 as well as converting the intermediate representation Instruction structures to machine code
 */
 
-#define INSTRUCTION_COUNT 63
+#define INSTRUCTION_COUNT 69
 #define INSTRUCTION_TABLE_SIZE 256 // SHOULD BE DECENTLY LARGER THAN INSTRUCTION COUNT
 
 // ADD NEW INSTRUCTIONS HERE
 static const InstrDesc instr_table[INSTRUCTION_COUNT] = {
-    // MNEMONIC, OPCODE, FUNCT, FORMAT, REGISTER ORDER
+    // MNEMONIC, OPCODE, FUNCT, RS, FORMAT, REGISTER ORDER
 
     // MAIN ENCODING
-    { "beq",   0x04,  -1, I, {0,1,-1} },    // Conditional branches
-    { "bne",   0x05,  -1, I, {0,1,-1} },
-    { "blez",  0x06,  -1, I, {0,-1,-1} },
-    { "bgtz",  0x07,  -1, I, {0,-1,-1} },
-    { "addi",  0x08, -1, I, {1,0,-1} },     // Traditional O-type, i.e. R[rt] = f(R[rs])
-    { "addiu", 0x09, -1, I, {1,0,-1} },
-    { "slti",  0x0a, -1, I, {1,0,-1} },
-    { "sltiu", 0x0b, -1, I, {1,0,-1} },
-    { "andi",  0x0c, -1, I, {1,0,-1} },
-    { "ori",   0x0d, -1, I, {1,0,-1} },
-    { "xori",  0x0e, -1, I, {1,0,-1} },
-    { "lui",   0x0f, -1, I, {1,-1,-1} },
-    { "lb",    0x20, -1, I, {1,-1,-1} },    // Memory instructions
-    { "lh",    0x21, -1, I, {1,-1,-1} },
-    { "lwl",   0x22, -1, I, {1,-1,-1} },
-    { "lw",    0x23, -1, I, {1,-1,-1} },
-    { "lbu",   0x24, -1, I, {1,-1,-1} },
-    { "lhu",   0x25, -1, I, {1,-1,-1} },
-    { "lwr",   0x26, -1, I, {1,-1,-1} },
-    { "sb",    0x28, -1, I, {1,-1,-1} },
-    { "sh",    0x29, -1, I, {1,-1,-1} },
-    { "swl",   0x2a, -1, I, {1,-1,-1} },
-    { "sw",    0x2b, -1, I, {1,-1,-1} },
-    { "swr",   0x2e, -1, I, {1,-1,-1} },
-    { "j",     0x02,  -1, J, {-1,-1,-1} },  // J TYPE
-    { "jal",   0x03,  -1, J, {-1,-1,-1} },
+    { "beq",   0x04, -1, 0, I, {0,1,-1} },    // Conditional branches
+    { "bne",   0x05, -1, 0, I, {0,1,-1} },
+    { "blez",  0x06, -1, 0, I, {0,-1,-1} },
+    { "bgtz",  0x07, -1, 0, I, {0,-1,-1} },
+    { "addi",  0x08, -1, 0, I, {1,0,-1} },     // Traditional O-type, i.e. R[rt] = f(R[rs])
+    { "addiu", 0x09, -1, 0, I, {1,0,-1} },
+    { "slti",  0x0a, -1, 0, I, {1,0,-1} },
+    { "sltiu", 0x0b, -1, 0, I, {1,0,-1} },
+    { "andi",  0x0c, -1, 0, I, {1,0,-1} },
+    { "ori",   0x0d, -1, 0, I, {1,0,-1} },
+    { "xori",  0x0e, -1, 0, I, {1,0,-1} },
+    { "lui",   0x0f, -1, 0, I, {1,-1,-1} },
+    { "lb",    0x20, -1, 0, I, {1,-1,-1} },    // Memory instructions
+    { "lh",    0x21, -1, 0, I, {1,-1,-1} },
+    { "lwl",   0x22, -1, 0, I, {1,-1,-1} },
+    { "lw",    0x23, -1, 0, I, {1,-1,-1} },
+    { "lbu",   0x24, -1, 0, I, {1,-1,-1} },
+    { "lhu",   0x25, -1, 0, I, {1,-1,-1} },
+    { "lwr",   0x26, -1, 0, I, {1,-1,-1} },
+    { "sb",    0x28, -1, 0, I, {1,-1,-1} },
+    { "sh",    0x29, -1, 0, I, {1,-1,-1} },
+    { "swl",   0x2a, -1, 0, I, {1,-1,-1} },
+    { "sw",    0x2b, -1, 0, I, {1,-1,-1} },
+    { "swr",   0x2e, -1, 0, I, {1,-1,-1} },
+    { "j",     0x02, -1, 0, J, {-1,-1,-1} },  // J TYPE
+    { "jal",   0x03, -1, 0, J, {-1,-1,-1} },
 
     // SPECIAL ENCODING
-    { "sll",        0x00, 0x00, R, {2,1,-1}     },  // R TYPE
-    { "nop",        0x00, 0x00, R, {-1,-1,-1}   },
-    { "srl",        0x00, 0x02, R, {2,1,-1}     },
-    { "sra",        0x00, 0x03, R, {2,1,-1}     },
-    { "sllv",       0x00, 0x04, R, {2,1,0}      },
-    { "srlv",       0x00, 0x04, R, {2,1,0}      },
-    { "srav",       0x00, 0x07, R, {2,1,0}      },
-    { "jr",         0x00, 0x08, R, {0,-1,-1}    },
-    { "jalr",       0x00, 0x09, R, {0,2,-1}      },
-    { "movz",       0x00, 0x0a, R, {2,0,1}      },
-    { "movn",       0x00, 0x0b, R, {2,0,1}      },
-    { "syscall",    0x00, 0x0c, R, {-1,-1,-1}   },
-    { "break",      0x00, 0x0d, R, {-1,-1,-1}   },
-    { "mfhi",       0x00, 0x10, R, {2,-1,-1}    },
-    { "mthi",       0x00, 0x11, R, {0,-1,-1}    },
-    { "mflo",       0x00, 0x12, R, {2,-1,-1}    },
-    { "mtlo",       0x00, 0x13, R, {0,-1,-1}    },
-    { "mult",       0x00, 0x18, R, {0,1,-1}     },
-    { "multu",      0x00, 0x19, R, {0,1,-1}     },
-    { "div",        0x00, 0x1a, R, {0,1,-1}     },
-    { "divu",       0x00, 0x1b, R, {0,1,-1}     },
-    { "add",        0x00, 0x20, R, {2,0,1}      },
-    { "addu",       0x00, 0x21, R, {2,0,1}      },
-    { "sub",        0x00, 0x22, R, {2,0,1}      },
-    { "subu",       0x00, 0x23, R, {2,0,1}      },
-    { "and",        0x00, 0x24, R, {2,0,1}      },
-    { "or",         0x00, 0x25, R, {2,0,1}      },
-    { "xor",        0x00, 0x26, R, {2,0,1}      },
-    { "nor",        0x00, 0x27, R, {2,0,1}      },
-    { "slt",        0x00, 0x2a, R, {2,0,1}      },
-    { "sltu",       0x00, 0x2b, R, {2,0,1}      },
-    { "tge",        0x00, 0x30, R, {0,1,-1}     },
-    { "tgeu",       0x00, 0x31, R, {0,1,-1}     },
-    { "tlt",        0x00, 0x32, R, {0,1,-1}     },
-    { "tltu",       0x00, 0x33, R, {0,1,-1}     },
-    { "teq",        0x00, 0x34, R, {0,1,-1}     },
-    { "tne",        0x00, 0x36, R, {0,1,-1}     },
+    { "sll",        0x00, 0x00, 0, R, {2,1,-1}     },  // R TYPE
+    { "nop",        0x00, 0x00, 0, R, {-1,-1,-1}   },
+    { "srl",        0x00, 0x02, 0, R, {2,1,-1}     },
+    { "sra",        0x00, 0x03, 0, R, {2,1,-1}     },
+    { "sllv",       0x00, 0x04, 0, R, {2,1,0}      },
+    { "srlv",       0x00, 0x04, 0, R, {2,1,0}      },
+    { "srav",       0x00, 0x07, 0, R, {2,1,0}      },
+    { "jr",         0x00, 0x08, 0, R, {0,-1,-1}    },
+    { "jalr",       0x00, 0x09, 0, R, {0,2,-1}      },
+    { "movz",       0x00, 0x0a, 0, R, {2,0,1}      },
+    { "movn",       0x00, 0x0b, 0, R, {2,0,1}      },
+    { "syscall",    0x00, 0x0c, 0, R, {-1,-1,-1}   },
+    { "break",      0x00, 0x0d, 0, R, {-1,-1,-1}   },
+    { "mfhi",       0x00, 0x10, 0, R, {2,-1,-1}    },
+    { "mthi",       0x00, 0x11, 0, R, {0,-1,-1}    },
+    { "mflo",       0x00, 0x12, 0, R, {2,-1,-1}    },
+    { "mtlo",       0x00, 0x13, 0, R, {0,-1,-1}    },
+    { "mult",       0x00, 0x18, 0, R, {0,1,-1}     },
+    { "multu",      0x00, 0x19, 0, R, {0,1,-1}     },
+    { "div",        0x00, 0x1a, 0, R, {0,1,-1}     },
+    { "divu",       0x00, 0x1b, 0, R, {0,1,-1}     },
+    { "add",        0x00, 0x20, 0, R, {2,0,1}      },
+    { "addu",       0x00, 0x21, 0, R, {2,0,1}      },
+    { "sub",        0x00, 0x22, 0, R, {2,0,1}      },
+    { "subu",       0x00, 0x23, 0, R, {2,0,1}      },
+    { "and",        0x00, 0x24, 0, R, {2,0,1}      },
+    { "or",         0x00, 0x25, 0, R, {2,0,1}      },
+    { "xor",        0x00, 0x26, 0, R, {2,0,1}      },
+    { "nor",        0x00, 0x27, 0, R, {2,0,1}      },
+    { "slt",        0x00, 0x2a, 0, R, {2,0,1}      },
+    { "sltu",       0x00, 0x2b, 0, R, {2,0,1}      },
+    { "tge",        0x00, 0x30, 0, R, {0,1,-1}     },
+    { "tgeu",       0x00, 0x31, 0, R, {0,1,-1}     },
+    { "tlt",        0x00, 0x32, 0, R, {0,1,-1}     },
+    { "tltu",       0x00, 0x33, 0, R, {0,1,-1}     },
+    { "teq",        0x00, 0x34, 0, R, {0,1,-1}     },
+    { "tne",        0x00, 0x36, 0, R, {0,1,-1}     },
+
+    // COP0 ENCODING
+    {"eret",        0x10, 0x18, C0,     R, {-1,-1,-1}   },
+    {"deret",       0x10, 0x20, C0,     R, {-1,-1,-1}   },
+    {"mfc0",        0x10, 0x00, 00,     R, {1,2,-1}     },
+    {"mtc0",        0x10, 0x00, 0b100,  R, {1,2,-1}     },
+    {"ei",          0x10, C0,   0xb,    R, {1,-1,-1}    },  // REQUIRES SPECIAL VALUE IN RD
+    {"di",          0x10, 0x00, 0xb,    R, {1,-1,-1}    },  // REQUIRES SPECIAL VALUE IN RD
 };
 
 // Allocate memory and initialize hash table
@@ -253,6 +261,14 @@ uint32_t convert_rtype(Instruction instruction, const InstrDesc *desc) {
         return -1;
     }
 
+    // Fill the rs field for the instructions that use them in their encoding (namely C0 instructions)
+    if (desc->rs != 0) {
+        regs[0] = desc->rs;
+    }
+
+    // special RD value for EI and DI
+    if (desc->opcode == 0x10 && desc->rs == 0xb) regs[2] = 12;
+
     // Shift each field into position
     opcode  <<= 26;
     regs[0] <<= 21; // rs
@@ -262,7 +278,7 @@ uint32_t convert_rtype(Instruction instruction, const InstrDesc *desc) {
     return opcode | regs[0] | regs[1] | regs[2] | shamt | funct;
 }
 
-uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, const uint32_t current_offset) {
+uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, const uint32_t current_offset, const Segment current_segment) {
     if (desc->format != I) {
         raise_error(NOERR, NULL, __FILE__);
         return -1;
@@ -304,7 +320,7 @@ uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_tab
         Symbol *s = instruction.imm.symbol;
         if (s == NULL) return -1;
         RelocationEntry reloc;
-        try(re_init(&reloc, s->index, current_offset, TEXT, R_PC16), -1);
+        try(re_init(&reloc, s->index, current_offset, current_segment, R_PC16), -1);
         rt_add(reloc_table, reloc);
 
         imm = 0;
@@ -325,10 +341,10 @@ uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_tab
 
             switch (instruction.imm.modifier) {
                 case 1: // R_HI16
-                    try(re_init(&reloc, s->index, current_offset, TEXT, R_HI16), -1);
+                    try(re_init(&reloc, s->index, current_offset, current_segment, R_HI16), -1);
                     break;
                 case 2: // R_LO16
-                    try(re_init(&reloc, s->index, current_offset, TEXT, R_LO16), -1);
+                    try(re_init(&reloc, s->index, current_offset, current_segment, R_LO16), -1);
                     break;
                 default:
                     raise_error(ARGS_INV, NULL, __FILE__);
@@ -385,10 +401,10 @@ uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_tab
                 Symbol *s = instruction.imm.symbol;
                 if (s == NULL) return -1;
                 if (instruction.imm.modifier == 1) {
-                    try(re_init(&reloc, s->index, current_offset, TEXT, R_HI16), -1);
+                    try(re_init(&reloc, s->index, current_offset, current_segment, R_HI16), -1);
                 }
                 else if (instruction.imm.modifier == 2) {
-                    try(re_init(&reloc, s->index, current_offset, TEXT, R_LO16), -1);
+                    try(re_init(&reloc, s->index, current_offset, current_segment, R_LO16), -1);
                 }
                 else {
                     raise_error(ARGS_INV, NULL, __FILE__);
@@ -409,7 +425,7 @@ uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_tab
     return opcode | regs[0] | regs[1] | imm;
 }
 
-uint32_t convert_jtype(const Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, const uint32_t current_offset) {
+uint32_t convert_jtype(const Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, const uint32_t current_offset, const Segment current_segment) {
     if (desc->format != J) {
         raise_error(NOERR, NULL, __FILE__);
         return -1;
@@ -432,7 +448,7 @@ uint32_t convert_jtype(const Instruction instruction, RelocationTable *reloc_tab
     Symbol *s = instruction.imm.symbol;
     if (s == NULL) return -1;
     RelocationEntry reloc;
-    try(re_init(&reloc, s->index, current_offset, TEXT, R_26), -1);
+    try(re_init(&reloc, s->index, current_offset, current_segment, R_26), -1);
     rt_add(reloc_table, reloc);
 
     opcode <<= 26;

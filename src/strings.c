@@ -73,6 +73,17 @@ int string_insert(String *str, size_t index, const char *src) {
     return 1;
 }
 
+int string_insert_char(String *str, size_t index, char c) {
+    if (str->len + 1 >= str->cap) {
+        try(str_resize(str, str->cap * 2 + 1), 0)
+    }
+
+    memmove(&str->str[index+1], &str->str[index], str->len+1-index);
+    str->str[index] = c;
+    str->len += 1;
+    return 1;
+}
+
 // Writes src to dst, resizing if necessary
 int string_cpy_to(String *dst, const char *src) {
     const size_t l = strlen(src);
@@ -152,6 +163,7 @@ void strtab_debug(const StringTable *table) {
             printf("%c", table->table[i]);
         }
     }
+    printf("\n");
 }
 
 void strtab_debug2(const char *strtab, uint32_t size) {

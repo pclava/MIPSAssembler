@@ -4,6 +4,27 @@
 .define _DATA 0x10010000
 .define _STACK 0x7fffffff
 .define _HEAP 0x10080000
+.define _KTEXT 0x80000180
+.define _KDATA 0x90000000
+
+.define _SYSPRINTINT    1
+.define _SYSPRINTSTR    4
+.define _SYSREADINT     5
+.define _SYSREADSTR     8
+.define _SYSSBRK        9
+.define _SYSEXIT        10
+.define _SYSPRINTCHR    11
+.define _SYSREADCHR     12
+.define _SYSOPENFILE    13
+.define _SYSREADFILE    14
+.define _SYSWRITEFILE   15
+.define _SYSCLOSEFILE   16
+.define _SYSEXIT2       17
+.define _SYSPRINTHEX    20
+.define _SYSPRINTBIN    21
+.define _SYSPRINTU      22
+.define _SYSBRK         23
+.define _SYSEXCP        24
 
 # Push to stack
 .macro push %r
@@ -51,6 +72,16 @@
     beq $0, $0, %lbl
 .end_macro
 
+# Branch on zero
+.macro beqz %r %lbl
+    beq %r, $0, %lbl
+.end_macro
+
+# Branch on not zero
+.macro bnez %r %lbl
+    bne %r, $0, %lbl
+.end_macro
+
 # Load address
 .macro la %r %lbl
     lui $at, %hi(%lbl)
@@ -59,13 +90,13 @@
 
 # Terminate program with exit code 0
 .macro done
-    li $v0, 10
+    li $v0, _SYSEXIT
     syscall
 .end_macro
 
 # Terminate program with an exit code
 .macro exit %imm
-    li $v0, 17
+    li $v0, _SYSEXIT2
     li $a0, %imm
     syscall
 .end_macro

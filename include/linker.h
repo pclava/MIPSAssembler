@@ -10,6 +10,8 @@ struct SourceFile {
     char *name;
     uint32_t text_offset;
     uint32_t data_offset;
+    uint32_t ktext_offset;
+    uint32_t kdata_offset;
     SymbolTable *symbol_table;  // NOTE: global symbols store their final address in the offset field. segment is ignored
     struct mof_file file;
 };

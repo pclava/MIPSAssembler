@@ -15,8 +15,11 @@ typedef struct Assembler Assembler;
 struct Assembler {
     Text *preprocessed;
     DataList *data_list;
+    DataList *kernel_data;
     InstructionList *instruction_list;
+    InstructionList *kernel_text;
     SymbolTable *symbol_table;
+    SymbolTable *kernel_symbol_table;
     InstructionTable *instruction_table;
     RelocationTable *relocation_table;
 };

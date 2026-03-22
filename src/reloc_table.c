@@ -57,11 +57,15 @@ void rt_debug(const RelocationTable *table, const SymbolTable *symbol_table) {
 }
 
 void re_debug(const RelocationEntry entry, const char *dependency) {
-    char segment[6];
+    char segment[7];
     if (entry.segment == TEXT) {
         strcpy(segment, ".text");
-    } else {
+    } else if (entry.segment == DATA) {
         strcpy(segment, ".data");
+    } else if (entry.segment == KDATA) {
+        strcpy(segment, ".kdata");
+    } else if (entry.segment == KTEXT) {
+        strcpy(segment, ".ktext");
     }
 
     printf("address at %s+%d needs relocation of type %d for symbol %s\n", segment, entry.offset, entry.type, dependency);
