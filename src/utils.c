@@ -302,7 +302,7 @@ void error(void) {
 
 // Provides more context to the error
 void error_context(const char * str) {
-    fprintf(stderr, "\t-> (%s)\n", str);
+    fprintf(stderr, "    -> (%s)\n", str);
 }
 
 void general_error(const errcode code, const char *file, const char * object) {
