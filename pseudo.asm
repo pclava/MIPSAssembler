@@ -24,6 +24,7 @@
 .define _SYSPRINTBIN    21
 .define _SYSPRINTU      22
 .define _SYSBRK         23
+.define _SYSEXCP        24
 
 # Push to stack
 .macro push %r
