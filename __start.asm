@@ -1,6 +1,13 @@
-# Optionally inserted by the linker at the end of the program - calls the 'main' function
-.text
-.globl __start
+# Optionally inserted by the linker at the end of the program:
+# - calls the 'main' function
+# - delegates exception handling to the emulator
+
+    .ktext
+    li  $v0, _SYSEXCP
+    syscall
+
+    .text
+    .globl __start
 __start:
     move    $fp, $sp        # Set frame pointer
 
@@ -11,7 +18,11 @@ __start:
 
     move    $a0 $v0         # Put return value in a0 (argument to syscall 17)
 
-.globl __exit
+    .globl __exit
 __exit:
     li $v0 17           # Exit with the value in a0
     syscall
+
+    .globl __end
+__end:
+    nop
