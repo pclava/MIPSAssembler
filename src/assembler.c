@@ -410,12 +410,6 @@ uint32_t convert_instruction(const Instruction instruction, const Assembler* ass
     const InstrDesc *instruction_desc = it_lookup(assembler->instruction_table, instruction.mnemonic);
     if (instruction_desc == NULL) return -1;
 
-    if (instruction_desc->opcode == COP0 && CURRENT_SEGMENT == TEXT) {
-        raise_error(INSTR_INV, instruction_desc->mnemonic, __FILE__);
-        error_context("cannot access coprocessor 0 instructions in user space");
-        return -1;
-    }
-
     switch (instruction_desc->format) {
         case R:
             return convert_rtype(instruction, instruction_desc);
