@@ -95,7 +95,7 @@
 .end_macro
 
 # Terminate program with an exit code
-.macro exit %imm
+.macro progexit %imm
     li $v0, _SYSEXIT2
     li $a0, %imm
     syscall
