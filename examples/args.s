@@ -1,7 +1,7 @@
 # Demonstration of command line arguments with __start.asm
 # Build with:
 # MIPSAssembler <path>/args.s
-# MIPSLinker <path>/args.s -ls
+# MIPSLinker <path>/args.o -ls
 
     .text
     .globl main
