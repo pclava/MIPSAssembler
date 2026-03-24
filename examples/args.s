@@ -27,6 +27,5 @@ loop:
     addiu   $t0, $t0, 1             # Increment counter
     j       loop                    # Loop
 endloop:
-    move    $a0, $s0                # Exit with the code equal to argc
-    li      $v0, _SYSEXIT2
-    syscall
+   move     $v0, $a0                # Return to caller (__start) with value equal to argc
+   jr       $ra
