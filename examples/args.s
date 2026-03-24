@@ -27,5 +27,5 @@ loop:
     addiu   $t0, $t0, 1             # Increment counter
     j       loop                    # Loop
 endloop:
-   move     $v0, $a0                # Return to caller (__start) with value equal to argc
+   move     $v0, $s0                # Return to caller (__start) with value equal to argc
    jr       $ra
