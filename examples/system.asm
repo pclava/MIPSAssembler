@@ -29,6 +29,10 @@ __sys_print_char:	# void __sys_print_char(char c)
         li      $v0, _SYSPRINTCHR
         syscall
         jr      $ra
+__sys_print_unsigned:   # void __sys_print_unsigned(unsigned int v)
+        li      $v0, _SYSPRINTU
+        syscall
+        jr      $ra
 __sys_read_mem:		# unsigned char __sys_read_mem(unsigned int addr)
         lbu     $v0,0($a0)
         jr      $ra
