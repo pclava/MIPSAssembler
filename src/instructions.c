@@ -86,7 +86,7 @@ static const InstrDesc instr_table[INSTRUCTION_COUNT] = {
 
     // COP0 ENCODING
     {"eret",        0x10, 0x18, C0,     R, {-1,-1,-1}   },
-    {"deret",       0x10, 0x20, C0,     R, {-1,-1,-1}   },
+    {"wait",        0x10, 0x20, C0,     R, {-1,-1,-1}   },
     {"mfc0",        0x10, 0x00, 00,     R, {1,2,-1}     },
     {"mtc0",        0x10, 0x00, 0b100,  R, {1,2,-1}     },
     {"ei",          0x10, C0,   0xb,    R, {1,-1,-1}    },  // REQUIRES SPECIAL VALUE IN RD
