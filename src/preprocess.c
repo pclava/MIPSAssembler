@@ -44,6 +44,20 @@ int collapse_labels(const Line *line) {
     return 1;
 }
 
+// j points to first delimiter in the original string, i points to last delimiter
+int add_with_delimiters(const char *to_add, const char *i, const char *j, String *new) {
+    // Add delimiters
+    if (i != NULL) {
+        while (j <= i) {
+            try(string_append(new, *j), 0);
+            j++;
+        }
+    }
+    // Add string
+    try(string_append_string(new, to_add), 0);
+    return 1;
+}
+
 // Identifies invocations of macros and replaces them
 // Returns 0 on failure, 2 if the line must be removed, and 1 otherwise
 int resolve_macros(Line *line, MacroTable *macro_table, Text *text) {
@@ -52,9 +66,12 @@ int resolve_macros(Line *line, MacroTable *macro_table, Text *text) {
     if (old == NULL) return 0;
     char *oldstr = old->str;
     if (old->len == 0) return 1;
+    int ret = 1;
+    size_t read = 0;
 
     char *buf = strdup(oldstr);
     long i;
+    char *j = oldstr; // pointer to first delimiter
 
     // Keep a new String, destroy and replace old String when finished
     String *new = malloc(sizeof(String));
@@ -97,17 +114,28 @@ int resolve_macros(Line *line, MacroTable *macro_table, Text *text) {
 
         // Get character that were used as delimiter, so we can add them back
         // Note that sanitizer guarantees that spaces around parentheses are removed
-        i = token-1-buf;    // index of previous delimiter
-        if (i >= 0) {
-            // Add skipped characters
-            for (long j = (long) new->len; j <= i; j++) {
-                char c = oldstr[j];
-                try(string_append(new, c), 0);
-            }
-        }
-        try(string_append_string(new, token), 0);
+        // i = token-1-buf;    // index of previous delimiter
+        // if (i >= 0) {
+        //     // Add skipped characters
+        //     for (size_t j = read; j <= (size_t) i; j++) {
+        //         char c = oldstr[j];
+        //         try(string_append(new, c), 0);
+        //         read += 1;
+        //     }
+        // }
+        // try(string_append_string(new, token), 0);
+
+        i = token-1-buf;        // index of last delimiter
+        if (i >= 0) add_with_delimiters(token, &oldstr[i], j, new);
+        else add_with_delimiters(token, NULL, NULL, new);
+        j = &oldstr[i + len + 1];   // Update j
+
+        _continue:
+        // Get new token
         token = strtok(NULL, " ()");
-        if (token == NULL) {    // last delimiter
+
+        // If this was the last token, add last delimiter if needed
+        if (token == NULL) {
             char c = oldstr[i+len+1];   // also add last delimiter
             if (c != '\0') try(string_append(new, c), 0);
         }
@@ -117,18 +145,13 @@ int resolve_macros(Line *line, MacroTable *macro_table, Text *text) {
         macro = mt_get_at(macro_table, index);
         // Determine type
         if (macro->type == CONSTANT) {
-            // Create a new Line after the current and copy everything into it. This is inefficient but its the easiest
-            // way to ensure we go back over the macro to resolve any macros within it
-            if (new->len != 0) try(string_append(new, ' '), 0);
-            try(string_append_string(new, macro_get_constant(macro)), 0);
-
-            Line to_insert;
-            try(line_init(&to_insert), 0);
-            to_insert.number = line->number;
-            try(line_append_str(&to_insert, new->str), 0);
-            try(text_insert(text, to_insert, line), 0);
-            free(buf);
-            return 2;   // delete old string
+            char *to_add = macro_get_constant(macro);
+            ret = 2;
+            i = token-1-buf;
+            if (i >= 0) add_with_delimiters(to_add, &oldstr[i], j, new);
+            else add_with_delimiters(to_add, NULL, j, new);
+            j = &oldstr[i + len + 1];
+            goto _continue;
         }
 
         // Insert macro into list after current line (current line will then be removed)
@@ -145,7 +168,14 @@ int resolve_macros(Line *line, MacroTable *macro_table, Text *text) {
     string_destroy(old);         // Delete old string
     line->text = new;           // Set new string
     free(buf);
-    return 1;
+    if (ret == 2) {
+        Line to_insert;
+        try(line_init(&to_insert), 0);
+        to_insert.number = line->number;
+        try(line_append_str(&to_insert, new->str), 0);
+        try(text_insert(text, to_insert, line), 0);
+    }
+    return ret;
 }
 
 // Returns length of macro (counting start and end)
@@ -406,6 +436,7 @@ int preprocess(FILE *inp, Text *text) {
     try(preprocess_file(pseudo, text, macro_table), 0);
     try(preprocess_file(inp, text, macro_table), 0)
 
+    // text_debug(text);
     mt_destroy(macro_table);
 
     return 1;
