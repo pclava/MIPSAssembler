@@ -82,6 +82,11 @@
     bne %r, $0, %lbl
 .end_macro
 
+# Branch greater than or equal zero
+.macro bgez %r %lbl
+    bge %r, $0, %lbl
+.end_macro
+
 # Load address
 .macro la %r %lbl
     lui $at, %hi(%lbl)

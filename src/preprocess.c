@@ -406,6 +406,7 @@ int preprocess(FILE *inp, Text *text) {
     try(preprocess_file(pseudo, text, macro_table), 0);
     try(preprocess_file(inp, text, macro_table), 0)
 
+    mt_debug(macro_table);
     mt_destroy(macro_table);
 
     return 1;

@@ -325,7 +325,7 @@ int insert_macro(Text *text_list, Macro *macro, Line *line) {
 
         token = tokenize(NULL, ' ');
     }
-    if (argc >= 3) {
+    if (argc > 3) {
         raise_error(ARGS_INV, NULL, __FILE__);
         return 0;
     }
