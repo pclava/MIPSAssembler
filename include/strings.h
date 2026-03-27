@@ -33,6 +33,8 @@ char string_get(const String *str, size_t index);
 
 void string_set(const String *str, size_t index, char c);
 
+void string_clear(const String *str);
+
 int string_insert(String *str, size_t index, const char *src);
 
 int string_insert_char(String *str, size_t index, char c);

@@ -26,9 +26,9 @@ int string_init(String *str) {
     }
 
     str->str = s;
-    memset(str->str, '\0', STRING_INIT);
     str->cap = STRING_INIT;
     str->len = 0;
+    string_clear(str);
 
     return 1;
 }
@@ -50,6 +50,11 @@ int string_append(String *str, char c) {
 
 int string_append_string(String *str, const char *c) {
     return string_insert(str, str->len, c);
+}
+
+void string_clear(const String *str) {
+    if (str == NULL) return;
+    memset(str->str, '\0', str->cap);
 }
 
 // Does not check bounds!

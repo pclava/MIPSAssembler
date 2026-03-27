@@ -80,6 +80,7 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
             } else if (CURRENT_SEGMENT == KTEXT) {
                 try(st_add_symbol(assembler->symbol_table, label.str, assembler->kernel_text->text_offset, KTEXT, LOCAL), 0);
             }
+            string_clear(&label);
         }
 
         // Read mnemonic. This will catch the first token not ending in ':' and set readMnemonic to true.
