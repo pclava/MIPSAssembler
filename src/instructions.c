@@ -388,7 +388,7 @@ uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_tab
         switch (instruction.imm.modifier) {
             case 0:
                 // numerical value
-                if (instruction.imm.intValue > INT16_MAX || instruction.imm.intValue < INT16_MIN) {
+                if (instruction.imm.intValue > UINT16_MAX || instruction.imm.intValue < INT16_MIN) {
                     raise_error(ARGS_INV, NULL, __FILE__);
                     return -1;
                 }

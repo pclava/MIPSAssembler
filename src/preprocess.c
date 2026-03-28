@@ -288,7 +288,7 @@ int sanitize(Line *line) {
                 prev_wsp = 1;
             }
             // Toggle reading_string if the character is double-quotes but not if being used as the escape sequence \"
-            if (i == 0 || oldstr[i-1] != '\\') reading_string ^= 1;
+            if (i == 0 || new->str[new->len-1] != '\\') reading_string ^= 1;
             continue;
         }
 

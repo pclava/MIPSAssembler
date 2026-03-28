@@ -17,7 +17,7 @@ int word(Data *data, const char * str, SymbolTable *symbol_table) {
     data->type = WORD;
     data->isSymbol = 0;
 
-    Immediate imm = parse_imm(str, symbol_table);
+    Immediate imm = parse_imm(str, symbol_table, 0);
     if (imm.modifier == 255) {
         return 0;
     }
@@ -42,7 +42,7 @@ int half(Data * data, const char * str, SymbolTable *symbol_table) {
     data->isSymbol = 0;
     data->type = HALF;
 
-    Immediate imm = parse_imm(str, symbol_table);
+    Immediate imm = parse_imm(str, symbol_table, 0);
     if (imm.modifier == 255) {
         return 0;
     }
@@ -67,7 +67,7 @@ int byte(Data * data, const char * str, SymbolTable *symbol_table) {
     data->isSymbol = 0;
     data->type = BYTE;
 
-    Immediate imm = parse_imm(str, symbol_table);
+    Immediate imm = parse_imm(str, symbol_table, 0);
     if (imm.modifier == 255) {
         return 0;
     }
@@ -96,6 +96,11 @@ int string(Data * data, const char * str, SymbolTable *symbol_table) {
         raise_error(ARG_INV, str, __FILE__);
         return 0;
     }
+    // if no closing quote
+    if (strrchr(str, '"') == str) {
+        raise_error(ARG_INV, str, __FILE__);
+        return 0;
+    }
     data->type = STRING;
     data->isSymbol = 0;
     data->value.string = malloc(data->size);
@@ -110,10 +115,16 @@ int string_nt(Data * data, const char *str, SymbolTable *symbol_table) {
         raise_error(ARG_INV, str, __FILE__);
         return 0;
     }
+    // if no closing quote
+    if (strrchr(str, '"') == str) {
+        raise_error(ARG_INV, str, __FILE__);
+        return 0;
+    }
     data->type = STRING_NT;
     data->isSymbol = 0;
     data->value.string = malloc(data->size);
     memcpy(data->value.string, str+1, data->size);
+    data->value.string[data->size-1] = '\0';
     return 1;
 }
 

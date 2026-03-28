@@ -117,7 +117,7 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
             else {
 
                 is_imm:
-                instruction->imm = parse_imm(token, assembler->symbol_table);
+                instruction->imm = parse_imm(token, assembler->symbol_table, 1);
                 if (instruction->imm.modifier == 255) {
                     return 0;
                 }
@@ -321,7 +321,7 @@ int read_data(const Assembler *assembler, const Line *line) {
                 memset(argument, '\0', argument_size);
                 int string_length = 0;
 
-                // Argument is a string; note I keep the first quote to differentiate strings from other data (namely labels)
+                // Argument is a string; note I keep the quotes to differentiate strings from other data (namely labels)
                 if (token[0] == '"') {
                     argument = read_string(argument, &argument_size, token, &string_length);
                     if (argument == NULL) {

@@ -6,6 +6,8 @@
 .define _HEAP 0x10080000
 .define _KTEXT 0x80000180
 .define _KDATA 0x90000000
+.define _DISPLAYADDR 0xffff0000
+.define _MMIO 0xfffffa00
 
 .define _SYSPRINTINT    1
 .define _SYSPRINTSTR    4
@@ -50,6 +52,12 @@
     beq $at, $0, %lbl
 .end_macro
 
+# Branch greater or equal immediate
+.macro bgei %r %imm %lbl
+    slti $at, %r, %imm
+    beq  $at, $0, %lbl
+.end_macro
+
 # Branch greater
 .macro bgt %r1 %r2 %lbl
     slt $at, %r2, %r1
@@ -82,7 +90,7 @@
     bne %r, $0, %lbl
 .end_macro
 
-# Branch greater than or equal zero
+# Branch greater than or equal to zero
 .macro bgez %r %lbl
     bge %r, $0, %lbl
 .end_macro
@@ -104,4 +112,10 @@
     li $v0, _SYSEXIT2
     li $a0, %imm
     syscall
+.end_macro
+
+.macro abs %dst %src
+    sra $at, %src, 31    # -1 if negative, 0 if positive
+    xor %dst, %src, $at  # if negative, flip all the bits
+    sub %dst, %dst, $at  # subtract -1 or 0
 .end_macro

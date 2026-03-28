@@ -135,8 +135,8 @@ struct Immediate {
     unsigned char modifier; // 0 = none, 1 = hi, 2 = lo, 254 = macro argument, 255 = failure to parse
 };
 
-// Parses the string into an Immediate structure
-Immediate parse_imm(const char *str, SymbolTable *symbol_table);
+// Parses the string into an Immediate structure. read_escape is whether the function should resolve escape sequences
+Immediate parse_imm(const char *str, SymbolTable *symbol_table, int read_escape);
 
 size_t read_escape_sequence(const char *inp, char *res);
 
