@@ -27,6 +27,9 @@
 .define _SYSPRINTU      22
 .define _SYSBRK         23
 .define _SYSEXCP        24
+.define _SYSSEED        25
+.define _SYSRAND        26
+.define _SYSRANDRANGE   27
 
 # Push to stack
 .macro push %r

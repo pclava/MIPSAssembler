@@ -52,7 +52,7 @@ int relocate(const SourceFile *source, const struct mof_relocation relocation, u
         data = file.data;
     }
     else if (relocation.segment == KTEXT || relocation.segment == KDATA) {
-        instr_addr = KTEXT_START + source->text_offset + relocation.offset;
+        instr_addr = KTEXT_START + source->ktext_offset + relocation.offset;
         text = file.ktext;
         data = file.kdata;
     }
