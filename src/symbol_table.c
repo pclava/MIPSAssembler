@@ -162,9 +162,13 @@ void st_destroy(const SymbolTable *t) {
 
 void symbol_debug(const SymbolTable *st, const Symbol s) {
     if (s.segment == TEXT)
-        printf("%s: .text + %d, binding %d\n", st_get_string(st, s), s.offset, s.binding);
+        printf("%s: .text + 0x%.8x, binding %d\n", st_get_string(st, s), s.offset, s.binding);
     else if (s.segment == DATA)
-        printf("%s: .data + %d, binding %d\n", st_get_string(st, s), s.offset, s.binding);
+        printf("%s: .data + 0x%.8x, binding %d\n", st_get_string(st, s), s.offset, s.binding);
+    else if (s.segment == KTEXT)
+        printf("%s: .ktext + 0x%.8x, binding %d\n", st_get_string(st, s), s.offset, s.binding);
+    else if (s.segment == KDATA)
+        printf("%s: .kdata + 0x%.8x, binding %d\n", st_get_string(st, s), s.offset, s.binding);
     else if (s.segment == UNDEF)
         printf("%s: undefined, binding %d\n", st_get_string(st, s), s.binding);
 }
