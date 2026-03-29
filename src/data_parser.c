@@ -53,7 +53,7 @@ int half(Data * data, const char * str, SymbolTable *symbol_table) {
         return 1;
     }
 
-    if (imm.intValue < SHRT_MIN || imm.intValue > SHRT_MAX) {
+    if (imm.intValue < SHRT_MIN || imm.intValue > USHRT_MAX) {
         raise_error(ARG_INV, str, __FILE__);
         return 0;
     }
@@ -78,7 +78,7 @@ int byte(Data * data, const char * str, SymbolTable *symbol_table) {
         return 1;
     }
 
-    if (imm.intValue < CHAR_MIN || imm.intValue > CHAR_MAX) {
+    if (imm.intValue < CHAR_MIN || imm.intValue > UCHAR_MAX) {
         raise_error(ARG_INV, str, __FILE__);
         return 0;
     }
