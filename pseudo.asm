@@ -98,6 +98,11 @@
     bge %r, $0, %lbl
 .end_macro
 
+# Branch on less than zero
+.macro bltz %r %lbl
+    blt %r, $0, %lbl
+.end_macro
+
 # Load address
 .macro la %r %lbl
     lui $at, %hi(%lbl)
