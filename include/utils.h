@@ -150,6 +150,6 @@ unsigned char get_register(const char *token);
 
 void debug_binary(const char *name);
 
-int issymbol(char c);
+
 
 #endif //MIPS_ASSEMBLER_UTILS_H

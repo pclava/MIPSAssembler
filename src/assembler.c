@@ -45,6 +45,7 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
     int argc = 0;
     unsigned char args[3];
     unsigned char readMnemonic = 0; // Whether the mnemonic has been read. Set to true when the assembler finds the first token not ending in ':'
+    char *cur;
 
     String label;
     try(string_init(&label), 0);
@@ -117,7 +118,17 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
             else {
 
                 is_imm:
-                instruction->imm = parse_imm(token, assembler->symbol_table, 1);
+                // Special check for if tokenize removed a space character
+                cur = token;
+                if (cur[0] == '"' && cur[1] == '\0') {
+                    cur[1] = ' ';
+                    token = tokenize(NULL, ' ');
+                    if (token == NULL || token[0] != '"') {
+                        raise_error(ARG_INV, cur, __FILE__);
+                        return 0;
+                    }
+                }
+                instruction->imm = parse_imm(cur, assembler->symbol_table, 1);
                 if (instruction->imm.modifier == 255) {
                     return 0;
                 }
@@ -226,13 +237,13 @@ int read_data(const Assembler *assembler, const Line *line) {
         if (len <= 0) continue;
 
         // Token is a label
-        if (token[len-1] == ':') {
+        if (token[len-1] == ':' && token[0] != '"') {
             string_init(&labels[label_count]);
 
             // Set aside label, add to symbol list later
-            // We set it aside because the directive may add padding before the data it stores and we don't know the directive yet
+            // We set it aside because the directive may add padding before the data it stores, and we don't know the directive yet
             if (strlen(token) <= 1 || readDirective) { // Labels should not be empty and should precede the mnemonic
-                raise_error(SYMBOL_INV, token, __FILE__);
+                raise_error(ARG_INV, token, __FILE__);
                 free(argument);
                 return 0;
             }

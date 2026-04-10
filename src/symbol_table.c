@@ -1,4 +1,7 @@
 #include "symbol_table.h"
+
+#include <ctype.h>
+
 #include "utils.h"
 
 #include <stdio.h>
@@ -222,4 +225,17 @@ void st_dump(const SymbolTable *t, const char *path) {
         }
     }
     fclose(f);
+}
+
+// Returns whether c is a valid symbol character
+int issymbol(char c) {
+    return isalnum(c) || c == '_' || c == '$' || c == '.';
+}
+
+int is_valid_symbol(const char *str) {
+    if (isdigit(str[0])) return 0;
+    for (size_t i = 0; i < strlen(str); i++) {
+        if (!issymbol(str[i])) return 0;
+    }
+    return 1;
 }

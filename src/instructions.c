@@ -353,7 +353,21 @@ uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_tab
             rt_add(reloc_table, reloc);
         }
         else {
-            imm = instruction.imm.intValue;
+            // imm = instruction.imm.intValue;
+            switch (instruction.imm.modifier) {
+                case 0:
+                    imm = instruction.imm.intValue;
+                    break;
+                case 1:
+                    imm = instruction.imm.intValue >> 16;
+                    break;
+                case 2:
+                    imm = instruction.imm.intValue & 0xFFFF;
+                    break;
+                default:
+                    raise_error(ARGS_INV, NULL, __FILE__);
+                    return -1;
+            }
         }
 
         /* NOTE:

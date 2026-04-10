@@ -1,6 +1,7 @@
 #ifndef MIPS_ASSEMBLER_SYMBOL_TABLE_H
 #define MIPS_ASSEMBLER_SYMBOL_TABLE_H
 #include <stdint.h>
+#include <string.h>
 
 #include "mof.h"
 #include "strings.h"
@@ -53,5 +54,9 @@ void st_debug(const SymbolTable *t);
 int write_symbol_table(FILE *file, const SymbolTable *t);
 
 void st_dump(const SymbolTable *t, const char *path);
+
+int issymbol(char c);
+
+int is_valid_symbol(const char *str);
 
 #endif //MIPS_ASSEMBLER_SYMBOL_TABLE_H

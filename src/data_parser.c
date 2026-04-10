@@ -97,7 +97,7 @@ int string(Data * data, const char * str, SymbolTable *symbol_table) {
         return 0;
     }
     // if no closing quote
-    if (strrchr(str, '"') == str) {
+    if (str[data->size+1] != '\"') {
         raise_error(ARG_INV, str, __FILE__);
         return 0;
     }
