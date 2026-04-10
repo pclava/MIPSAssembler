@@ -56,6 +56,4 @@ Line *define_macro(Macro *macro, const Line *line);
 
 int insert_macro(Text *text_list, Macro *macro, Line *line);
 
-int li(Instruction, InstructionList*);
-
 #endif //MIPS_ASSEMBLER_PSEUDOINSTRUCTIONS_H

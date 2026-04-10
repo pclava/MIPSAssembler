@@ -160,22 +160,6 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
     return 1;
 }
 
-// Adds Instruction to InstructionList, and converts special instructions
-int process_instruction(const Instruction instruction, InstructionList *instruction_list) {
-
-    // Check special case: `li` (load immediate)
-    // necessary because assembler currently doesn't support %hi and %lo for numerical values
-    if (strcmp(instruction.mnemonic, "li") == 0) {
-        if (li(instruction, instruction_list) == -1) {
-            return 0;
-        }
-        return 1;
-    }
-
-    return add_instruction(instruction_list, instruction);
-
-}
-
 // Parses and processes a Line containing an instruction.
 int read_text(const Assembler *assembler, Line *line) {
 
@@ -186,10 +170,10 @@ int read_text(const Assembler *assembler, Line *line) {
 
     // Add to instruction list
     if (CURRENT_SEGMENT == TEXT) {
-        try(process_instruction(instruction, assembler->instruction_list), 0);
+        try(add_instruction(assembler->instruction_list, instruction), 0);
     }
     else if (CURRENT_SEGMENT == KTEXT) {
-        try(process_instruction(instruction, assembler->kernel_text), 0);
+        try(add_instruction(assembler->kernel_text, instruction), 0);
     }
 
     return 1;

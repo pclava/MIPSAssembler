@@ -109,6 +109,12 @@
     ori %r, $at, %lo(%lbl)
 .end_macro
 
+# Load immediate
+.macro li %r %imm
+    lui $at, %hi(%imm)
+    ori %r, $at, %lo(%lbl)
+.end_macro
+
 # Terminate program with exit code 0
 .macro done
     li $v0, _SYSEXIT
