@@ -66,9 +66,9 @@ const char * read_operator(Immediate * imm, const char *str, SymbolTable * symbo
     if (isnumber(string_get(string, 0)) || string_get(string, 0) == '-') {
         imm->type = NUM;
         int base = 10; // assume 10
-        if (str[0] == '0') {
-            if (isalpha(str[1])) {
-                switch (str[1]) {
+        if (string->str[0] == '0') {
+            if (isalpha(string->str[1])) {
+                switch (string->str[1]) {
                     case 'B':
                     case 'b':
                         base = 2;
