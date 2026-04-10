@@ -112,7 +112,7 @@
 # Load immediate
 .macro li %r %imm
     lui $at, %hi(%imm)
-    ori %r, $at, %lo(%lbl)
+    ori %r, $at, %lo(%imm)
 .end_macro
 
 # Terminate program with exit code 0
