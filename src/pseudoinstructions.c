@@ -116,7 +116,7 @@ char *macro_get_constant(const Macro *macro) {
 }
 
 void macro_debug(const Macro *m) {
-    printf("macro \"%s\" (%lu)\n", m->name, m->definition_length);
+    printf("macro \"%s\" (%lu)\n", m->name, (unsigned long) m->definition_length);
     Line *cur = m->definition;
     for (size_t i = 0; i < m->definition_length; i++) {
         printf("\t%s\n", line_get_str(cur));

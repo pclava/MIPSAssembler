@@ -163,7 +163,7 @@ void text_destroy(const Text *text) {
 void text_debug(const Text * text) {
     Line *cur = text->head;
     while (cur != NULL) {
-        printf("%.3d: <%s> (%lu)\n", cur->number, cur->text->str, cur->text->len);
+        printf("%.3d: <%s> (%lu)\n", cur->number, cur->text->str, (unsigned long) cur->text->len);
         cur = cur->next;
     }
 }
