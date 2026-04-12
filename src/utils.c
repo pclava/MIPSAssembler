@@ -63,47 +63,20 @@ const char * read_operator(Immediate * imm, const char *str, SymbolTable * symbo
     }
 
     // Get symbol or numerical value
-    if (isnumber(string_get(string, 0)) || string_get(string, 0) == '-') {
-        imm->type = NUM;
-        int base = 10; // assume 10
-        if (string->str[0] == '0') {
-            if (isalpha(string->str[1])) {
-                switch (string->str[1]) {
-                    case 'B':
-                    case 'b':
-                        base = 2;
-                        break;
-                    case 'X':
-                    case 'x':
-                        base = 16;
-                        break;
-                    default:
-                        raise_error(ARG_INV, string->str, __FILE__);
-                        return NULL;
-                }
-            } else base = 8;
-        }
-
-        char *ep;
-        const long n = strtol(string->str, &ep, base);
-        if (*ep != '\0') {
-            raise_error(ARG_INV, string->str, __FILE__);
-            return NULL;
-        }
-
-        imm->intValue = (int32_t) n;
+    Immediate val = parse_imm(string->str, symbol_table, 1);
+    if (val.modifier != 0) {
+        raise_error(ARG_INV, string->str, __FILE__);
+        return NULL;
     }
-    else {
-        if (!is_valid_symbol(string->str)) {
-            raise_error(ARG_INV, str, __FILE__);
-            return NULL;
-        }
-        if (st_exists(symbol_table, string->str) == SYMBOL_TABLE_SIZE) {
-            try(st_add_symbol(symbol_table, string->str, 0, UNDEF, LOCAL), 0);
-        }
-        Symbol *s = st_get_symbol(symbol_table, string->str);
-        imm->symbol = s;
+    if (val.type == NUM) {
+        imm->type = NUM;
+        imm->intValue = val.intValue;
+    } else if (val.type == SYMBOL) {
         imm->type = SYMBOL;
+        imm->symbol = val.symbol;
+    } else {
+        raise_error(ARG_INV, string->str, NULL);
+        return NULL;
     }
 
     string_destroy(string);
