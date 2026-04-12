@@ -67,7 +67,6 @@ int resolve_macros(Line *line, MacroTable *macro_table, Text *text) {
     char *oldstr = old->str;
     if (old->len == 0) return 1;
     int ret = 1;
-    size_t read = 0;
 
     char *buf = strdup(oldstr);
     long i;

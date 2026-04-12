@@ -166,7 +166,7 @@ Immediate parse_imm(const char * str, SymbolTable *symbol_table, int read_escape
     // SYMBOL (and not reg-offset)
     else {
         endptr = strchr(str, '(');
-        size_t index = endptr == NULL ? strlen(str) : endptr-str;
+        size_t index = endptr == NULL ? strlen(str) : (ptrdiff_t) (endptr-str);
         char buf[strlen(str)+1];
         memset(buf, '\0', sizeof(buf));
         strncpy(buf, str, index);
