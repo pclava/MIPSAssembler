@@ -1,6 +1,7 @@
 # MIPS Assembler and Linker
 ## Overview
 An assembler and linker for a subset of the MIPS instruction set, written in C. I created this shortly after learning C and MIPS to gain experience with C projects (and projects in general) and improve my skills in C.
+
 There are two executables: an assembler and a linker. The former generates object files which the latter links into an executable.
 The executables can be run by my MIPS emulator at https://github.com/pclava/MIPSEmulator.
 
