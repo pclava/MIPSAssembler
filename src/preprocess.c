@@ -280,14 +280,16 @@ int sanitize(Line *line) {
                 if (!prev_wsp) string_append(new, ' ');
                 string_append(new, oldstr[i]);
                 prev_wsp = 0;
+                reading_string = 1;
             }
             else {                // put space after closing quote
                 string_append(new, oldstr[i]);
-                string_append(new, ' ');
-                prev_wsp = 1;
+                if (new->str[new->len-2] != '\\') {
+                    string_append(new, ' ');
+                    prev_wsp = 1;
+                    reading_string = 0;
+                }
             }
-            // Toggle reading_string if the character is double-quotes but not if being used as the escape sequence \"
-            if (i == 0 || new->str[new->len-1] != '\\') reading_string ^= 1;
             continue;
         }
 
@@ -432,7 +434,7 @@ int preprocess(FILE *inp, Text *text) {
     }
     try(mt_init(macro_table), 0);
 
-    try(preprocess_file(pseudo, text, macro_table), 0);
+    // try(preprocess_file(pseudo, text, macro_table), 0);
     try(preprocess_file(inp, text, macro_table), 0)
 
     // text_debug(text);
