@@ -434,7 +434,7 @@ int preprocess(FILE *inp, Text *text) {
     }
     try(mt_init(macro_table), 0);
 
-    // try(preprocess_file(pseudo, text, macro_table), 0);
+    try(preprocess_file(pseudo, text, macro_table), 0);
     try(preprocess_file(inp, text, macro_table), 0)
 
     // text_debug(text);
