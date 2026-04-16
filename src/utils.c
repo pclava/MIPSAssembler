@@ -50,7 +50,7 @@ const char * read_operator(Immediate * imm, const char *str, SymbolTable * symbo
     }
 
     // Read symbol until close parenthesis
-    String *string = malloc(sizeof(Symbol));
+    String *string = malloc(sizeof(String));
     try(string_init(string), NULL);
 
     i = 0;

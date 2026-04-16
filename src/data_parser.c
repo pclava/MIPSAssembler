@@ -103,8 +103,7 @@ int string(Data * data, const char * str, SymbolTable *symbol_table) {
     }
     data->type = STRING;
     data->isSymbol = 0;
-    data->value.string = malloc(data->size);
-    memcpy(data->value.string, str+1, data->size);
+    data->value.string = strdup(str+1);
     return 1;
 }
 
@@ -122,9 +121,7 @@ int string_nt(Data * data, const char *str, SymbolTable *symbol_table) {
     }
     data->type = STRING_NT;
     data->isSymbol = 0;
-    data->value.string = malloc(data->size);
-    memcpy(data->value.string, str+1, data->size);
-    data->value.string[data->size-1] = '\0';
+    data->value.string = strdup(str+1);
     return 1;
 }
 
@@ -174,7 +171,9 @@ int add_data(DataList *data_list, const Data data) {
 void dl_destroy(const DataList *data_list) {
     for (size_t i = 0; i < data_list->len; i++) {
         if (data_list->list[i].type == STRING || data_list->list[i].type == STRING_NT) {
-            if (data_list->list[i].value.string != NULL) free(data_list->list[i].value.string);
+            if (data_list->list[i].value.string != NULL) {
+                free(data_list->list[i].value.string);
+            }
         }
     }
     free(data_list->list);
