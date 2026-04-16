@@ -98,9 +98,11 @@ int resolve_macros(Line *line, MacroTable *macro_table, Text *text) {
             reading_string ^= 1;
             goto _add_and_continue;
         }
-        if (token[len-1] == '"' && token[len-2] != '\\') {
-            reading_string = 0;
-            goto _add_and_continue;
+        if (token[len-1] == '"') {
+            if (len < 3 || token[len-2] != '\\' || (token[len-2] == '\\' && token[len-3] == '\\')) {
+                reading_string = 0;
+                goto _add_and_continue;
+            }
         }
         if (reading_string) goto _add_and_continue;
 
@@ -284,11 +286,10 @@ int sanitize(Line *line) {
             }
             else {                // put space after closing quote
                 string_append(new, oldstr[i]);
-                if (new->str[new->len-2] != '\\') {
-                    string_append(new, ' ');
-                    prev_wsp = 1;
-                    reading_string = 0;
-                }
+                if (new->str[new->len-2] == '\\' && new->str[new->len-3] != '\\') continue;
+                string_append(new, ' ');
+                prev_wsp = 1;
+                reading_string = 0;
             }
             continue;
         }

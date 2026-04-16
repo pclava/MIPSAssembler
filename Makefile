@@ -12,7 +12,7 @@ LINKER_OBJ := $(LINKER_SRC:.c=.o)
 all: MIPSAssembler MIPSLinker
 
 MIPSAssembler: $(OBJ)
-	$(CC) $(OBJ) -o MIPSAssembler
+	$(CC) $(CFLAGS) $(OBJ) -o MIPSAssembler
 
 MIPSLinker: $(LINKER_OBJ)
 	$(CC) $(LINKER_OBJ) -o MIPSLinker

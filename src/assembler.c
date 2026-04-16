@@ -773,6 +773,8 @@ int assembler_init(Assembler *assembler, Text *preprocessed) {
     assembler->instruction_list = NULL;
     assembler->instruction_table = NULL;
     assembler->relocation_table = NULL;
+    assembler->kernel_text = NULL;
+    assembler->kernel_data = NULL;
 
     // Initialize symbol table
     SymbolTable *symbol_table = malloc(sizeof(SymbolTable));

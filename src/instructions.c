@@ -118,10 +118,9 @@ int it_create(InstructionTable *table) {
 
     if (table->buckets == NULL) return 0;
 
-
     // Populate from instr_table
     for (int i = 0; i < INSTRUCTION_COUNT; i++) {
-        it_insert(table, instr_table[i]);
+        try(it_insert(table, instr_table[i]), 0);
     }
 
     return 1;
@@ -173,7 +172,6 @@ InstrDesc *it_lookup(const InstructionTable *table, const char *mnemonic) {
 void it_destroy(const InstructionTable *table) {
     free(table->buckets);
 }
-
 
 // A convoluted function: expects as `in` a list of register numbers, and `order` the positions these correspond to.
 // See instructions.h for the order.
