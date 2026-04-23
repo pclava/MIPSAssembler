@@ -137,16 +137,19 @@ Immediate parse_imm(const char * str, SymbolTable *symbol_table, int read_escape
     else if (isdigit(str[0]) || str[0] == '-') {
         imm.type = NUM;
         int base = 10; // assume 10
+        char *s = str;
         if (str[0] == '0') {
             if (isalpha(str[1])) {
                 switch (str[1]) {
                     case 'B':
                     case 'b':
                         base = 2;
+                        s += 2;
                         break;
                     case 'X':
                     case 'x':
                         base = 16;
+                        s += 2;
                         break;
                     default:
                         raise_error(ARG_INV, str, __FILE__);
@@ -157,7 +160,7 @@ Immediate parse_imm(const char * str, SymbolTable *symbol_table, int read_escape
         }
 
         char *ep;
-        const long n = strtol(str, &ep, base);
+        const long n = strtol(s, &ep, base);
         endptr = ep;
 
         imm.intValue = (int32_t) n;
