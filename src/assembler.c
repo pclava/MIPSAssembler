@@ -86,6 +86,13 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
 
         // Read mnemonic. This will catch the first token not ending in ':' and set readMnemonic to true.
         else if (!readMnemonic) {
+            // Don't allow directives after labels in text segment
+            if (token[0] == '.') {
+                raise_error(ARG_INV, token, __FILE__);
+                error_context("Directives not supported after labels in text segment. If you need a dangling label, add a nop");
+                return 0;
+            }
+
             if (len >= MNEMONIC_LENGTH) {
                 raise_error(SIZE_ERR, token, __FILE__);
                 return 0;
