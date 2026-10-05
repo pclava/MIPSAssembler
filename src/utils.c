@@ -571,8 +571,8 @@ char * read_string(char *dst, size_t *dst_size, char *token, int *len) {
         dst = new;
     }
 
-    dst[j] = '\"';
-    dst[j+1] = '\0';
+    // dst[j] = '\"';
+    dst[j] = '\0';
 
     // Check if characters remain in buffer
     if (token[++i] != '\0') {

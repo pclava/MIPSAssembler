@@ -103,7 +103,12 @@ int string(Data * data, const char * str, SymbolTable *symbol_table) {
     // }
     data->type = STRING;
     data->isSymbol = 0;
-    data->value.string = strdup(str+1);
+    data->value.string = malloc(data->size);
+    if (data->value.string == NULL) {
+        raise_error(MEM, NULL, __FILE__);
+        return 0;
+    }
+    memcpy(data->value.string, str+1, data->size); // plus 1 to strip initial quote
     return 1;
 }
 
