@@ -137,7 +137,7 @@ Immediate parse_imm(const char * str, SymbolTable *symbol_table, int read_escape
     else if (isdigit(str[0]) || str[0] == '-') {
         imm.type = NUM;
         int base = 10; // assume 10
-        char *s = str;
+        const char *s = str;
         if (str[0] == '0') {
             if (isalpha(str[1])) {
                 switch (str[1]) {
@@ -513,6 +513,18 @@ char * read_string(char *dst, size_t *dst_size, char *token, int *len) {
 
     // Loop until closing quote is found
     while (c != '\"') {
+        // Resize buffer
+        if (j >= *dst_size) {
+            *dst_size = *dst_size * 2;
+            char *new = realloc(dst, *dst_size);
+            if (new == NULL) {
+                raise_error(MEM, NULL, __FILE__);
+                free(dst);
+                return NULL;
+            }
+            dst = new;
+        }
+
         if (c == '\0') {
             token = tokenize(NULL, ' ');
             if (token == NULL) {
@@ -528,18 +540,6 @@ char * read_string(char *dst, size_t *dst_size, char *token, int *len) {
             j++;
             c = token[i];
             continue;
-        }
-
-        // Resize buffer
-        if (j >= *dst_size) {
-            *dst_size = *dst_size * 2;
-            char *new = realloc(dst, *dst_size);
-            if (new == NULL) {
-                raise_error(MEM, NULL, __FILE__);
-                free(dst);
-                return NULL;
-            }
-            dst = new;
         }
 
         // Write to string

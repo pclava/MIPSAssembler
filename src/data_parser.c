@@ -96,11 +96,11 @@ int string(Data * data, const char * str, SymbolTable *symbol_table) {
         raise_error(ARG_INV, str, __FILE__);
         return 0;
     }
-    // if no closing quote
-    if (str[data->size+1] != '\"') {
-        raise_error(ARG_INV, str, __FILE__);
-        return 0;
-    }
+    // if no closing quote???
+    // if (str[data->size+1] != '\"') {
+    //     raise_error(ARG_INV, str, __FILE__);
+    //     return 0;
+    // }
     data->type = STRING;
     data->isSymbol = 0;
     data->value.string = strdup(str+1);
@@ -114,11 +114,11 @@ int string_nt(Data * data, const char *str, SymbolTable *symbol_table) {
         raise_error(ARG_INV, str, __FILE__);
         return 0;
     }
-    // if no closing quote
-    if (strrchr(str, '"') == str) {
-        raise_error(ARG_INV, str, __FILE__);
-        return 0;
-    }
+    // if no closing quote (TODO: ??? i dont think this is needed, so why did i put it here???? same with the other string function)
+    // if (strrchr(str, '"') == str) {
+    //     raise_error(ARG_INV, str, __FILE__);
+    //     return 0;
+    // }
     data->type = STRING_NT;
     data->isSymbol = 0;
     data->value.string = strdup(str+1);
