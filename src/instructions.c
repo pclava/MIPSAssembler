@@ -54,7 +54,7 @@ static const InstrDesc instr_table[INSTRUCTION_COUNT] = {
     { "srlv",       0x00, 0x04, 0, R, {2,1,0}      },
     { "srav",       0x00, 0x07, 0, R, {2,1,0}      },
     { "jr",         0x00, 0x08, 0, R, {0,-1,-1}    },
-    { "jalr",       0x00, 0x09, 0, R, {0,2,-1}      },
+    { "jalr",       0x00, 0x09, 0, R, {2,0,-1}      },
     { "movz",       0x00, 0x0a, 0, R, {2,0,1}      },
     { "movn",       0x00, 0x0b, 0, R, {2,0,1}      },
     { "syscall",    0x00, 0x0c, 0, R, {-1,-1,-1}   },
