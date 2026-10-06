@@ -215,10 +215,10 @@ Line *define_macro(Macro *macro, const Line *line) {
         }
     }
 
-    // Get argument names (up to 3)
+    // Get argument names (up to MACRO_ARGS)
     token = tokenize(NULL, ' ');
     size_t argc = 0;
-    while (argc < 3) {
+    while (argc < MACRO_ARGS) {
         if (token == NULL) break;
 
         if (strlen(token) >= 32 || token[0] != '%') {
@@ -242,7 +242,7 @@ Line *define_macro(Macro *macro, const Line *line) {
 
         token = tokenize(NULL, ' ');
     }
-    if (argc > 3) {
+    if (argc > MACRO_ARGS) {
         raise_error(ARGS_INV, NULL, __FILE__);
         return NULL;
     }
@@ -302,7 +302,7 @@ int insert_macro(Text *text_list, Macro *macro, Line *line) {
     char buf[strlen(text)+1];
     strcpy(buf,text);
 
-    // Retrieve arguments (up to 3 arguments of 32 characters each)
+    // Retrieve arguments (up to MACRO_ARGS arguments of 32 characters each)
     char args[MACRO_SIZE][MACRO_SIZE];
     memset(args, '\0', sizeof(args));
     char *token = tokenize(buf, ' ');
@@ -313,7 +313,7 @@ int insert_macro(Text *text_list, Macro *macro, Line *line) {
     // Copy over arguments
     token = tokenize(NULL, ' ');
     size_t argc = 0;
-    while (argc < 3) {
+    while (argc < MACRO_ARGS) {
         if (token == NULL) break;
 
         if (strlen(token) >= 32) {
@@ -325,7 +325,7 @@ int insert_macro(Text *text_list, Macro *macro, Line *line) {
 
         token = tokenize(NULL, ' ');
     }
-    if (argc > 3) {
+    if (argc > MACRO_ARGS) {
         raise_error(ARGS_INV, NULL, __FILE__);
         return 0;
     }

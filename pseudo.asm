@@ -4,7 +4,8 @@
 .define _DATA 0x10010000
 .define _STACK 0x7fffffff
 .define _HEAP 0x10080000
-.define _KTEXT 0x80000180
+.define _EXCVEC 0x80000180
+.define _KTEXT 0x80000000
 .define _KDATA 0x90000000
 .define _DISPLAYADDR 0xffff0000
 .define _MMIO 0xfffffa00
@@ -30,6 +31,41 @@
 .define _SYSSEED        25
 .define _SYSRAND        26
 .define _SYSRANDRANGE   27
+
+# TODO: implement in assembler
+.macro ins %rt %rs %pos %size
+
+    # Isolate target bits of rs and shift to correct position
+    # Clear target bits in rt
+    # Merge
+
+    addiu   $sp, $sp, -4
+    sw      $t0, 0($sp)     # Save $t0
+
+    # Calculate 32-size
+    addiu   $at, $0, 32     # Get 32
+    addiu   $t0, $0, %size  # Get size
+    subu    $t0, $at, $t0   # 32-size
+
+    # Create mask of 1s
+    addiu   $at, $0, -1     # All 1s
+    srlv    $at, $at, $t0   # Shift mask by 32-size
+
+    # Isolate bits in %rs and move to position
+    and     $t0, $at, %rs   # Isolate bits
+    sll     $t0, $t0, %pos  # Shift to position
+
+    # Create hole in %rt
+    sll     $at, $at, %pos  # Shift mask
+    nor     $at, $at, $0    # Invert (turn 0001111000 -> 1110000111)
+    and     %rt, %rt, $at   # Clear bits in rt
+
+    # Merge
+    or      %rt, %rt, $t0   # OR the cleared $rt with mask created in $t0
+
+    lw      $t0, 0($sp)     # Load $t0
+    addiu   $sp, $sp, 4
+.end_macro
 
 # Push to stack
 .macro push %r
