@@ -121,7 +121,7 @@ Immediate parse_imm(const char * str, SymbolTable *symbol_table, int read_escape
             imm.intValue = (int32_t) c;
             imm.type = NUM;
         }
-        else if (str[2] == '"') {
+        else if (str[2] == '\0') {
             imm.intValue = (int32_t) str[1];
             imm.type = NUM;
             endptr = &str[3];
