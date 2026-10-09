@@ -10,6 +10,8 @@
 #include <sys/mman.h>
 #endif
 
+uint32_t bss_start = DATA_START;
+
 static inline const char *get_string(const char *strtab, const uint32_t index) {
     return &strtab[index];
 }
@@ -22,7 +24,7 @@ uint32_t get_final_address(const Symbol symbol, const uint32_t object_offset) {
         case DATA:
             return DATA_START + object_offset + symbol.offset;
         case BSS:
-            return object_offset + symbol.offset; // before all relocations, linker will take care of adding the base address, which is the end of the user data
+            return bss_start + object_offset + symbol.offset;
         case KTEXT:
             return KTEXT_START + object_offset + symbol.offset;
         case KDATA:
@@ -176,6 +178,9 @@ int file_relocation(const SourceFile *source, const SymbolTable *global_symbols)
                     return 0;
                 }
                 final_address = dependency->offset; // recall that the GST saves the final address in the offset field
+                if (dependency->segment == BSS) {
+                    final_address += bss_start; // we didn't know where BSS when we populated the global symbol table
+                }
                 break;
             default:
                 return 0;
@@ -229,6 +234,9 @@ void load_symbols(SourceFile *file, SymbolTable *global_symbols) {
                     break;
                 case DATA:
                     final_offset = get_final_address(symbol, file->data_offset);
+                    break;
+                case BSS:
+                    final_offset = file->bss_offset + symbol.offset; // we will add bss_start at the end
                     break;
                 case KDATA:
                     final_offset = get_final_address(symbol, file->kdata_offset);
@@ -395,10 +403,7 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
 
     // At this point, every file has been read and we know every final address
 
-    // Add the base address to every BSS segment
-    for (int i = 0; i < file_count; i++) {
-        source_files[i].bss_offset += final_header.data;
-    }
+    bss_start += final_header.data;
 
     // Go through each file and resolve every relocation
     for (int file_index = 0; file_index < file_count; file_index++) {
