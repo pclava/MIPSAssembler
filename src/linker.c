@@ -21,6 +21,8 @@ uint32_t get_final_address(const Symbol symbol, const uint32_t object_offset) {
             return TEXT_START + object_offset + symbol.offset;
         case DATA:
             return DATA_START + object_offset + symbol.offset;
+        case BSS:
+            return object_offset + symbol.offset; // before all relocations, linker will take care of adding the base address, which is the end of the user data
         case KTEXT:
             return KTEXT_START + object_offset + symbol.offset;
         case KDATA:
@@ -123,8 +125,10 @@ int relocate(const SourceFile *source, const struct mof_relocation relocation, u
 int file_relocation(const SourceFile *source, const SymbolTable *global_symbols) {
     const struct mof_relocation *relocation_table = source->file.relocs;
     const char *strtab = source->file.strings;
+    // Where in each global segment are *this* file's segments
     const uint32_t text_offset = source->text_offset;
     const uint32_t data_offset = source->data_offset;
+    const uint32_t bss_offset = source->bss_offset;
     const uint32_t ktext_offset = source->ktext_offset;
     const uint32_t kdata_offset = source->kdata_offset;
     const uint32_t relocation_table_size = source->file.hdr.rels / MOF_RELOCSIZE;
@@ -147,6 +151,9 @@ int file_relocation(const SourceFile *source, const SymbolTable *global_symbols)
                 break;
             case DATA:
                 final_address = get_final_address(*dependency, data_offset);
+                break;
+            case BSS:
+                final_address = get_final_address(*dependency, bss_offset);
                 break;
             case KTEXT:
                 final_address = get_final_address(*dependency, ktext_offset);
@@ -184,7 +191,7 @@ int file_relocation(const SourceFile *source, const SymbolTable *global_symbols)
             }
         }
         else if (relocation.segment == KTEXT || relocation.segment == KDATA) {
-            if (dependency->segment == TEXT || dependency->segment == DATA) {
+            if (dependency->segment == TEXT || dependency->segment == DATA || dependency->segment == BSS) {
                 fprintf(stderr, "Error linking %s: kernel space attempted to access user space\n", source->name);
                 return 0;
             }
@@ -236,9 +243,10 @@ void load_symbols(SourceFile *file, SymbolTable *global_symbols) {
 }
 
 // Initializes SourceFile structure. Assumes internal mof_file already read
-int file_init(SourceFile *file, uint32_t text_offset, uint32_t data_offset, uint32_t ktext_offset, uint32_t kdata_offset) {
+int file_init(SourceFile *file, uint32_t text_offset, uint32_t data_offset, uint32_t bss_offset, uint32_t ktext_offset, uint32_t kdata_offset) {
     file->text_offset = text_offset;
     file->data_offset = data_offset;
+    file->bss_offset = bss_offset;
     file->ktext_offset = ktext_offset;
     file->kdata_offset = kdata_offset;
 
@@ -298,6 +306,7 @@ FILE * open_object_file(const char *path, struct mof_header *final_header, struc
     // Update final header
     final_header->text += file->hdr.text;
     final_header->data += file->hdr.data;
+    final_header->bss += file->hdr.bss;
     final_header->ktext += file->hdr.ktext;
     final_header->kdata += file->hdr.kdata;
     return f;
@@ -315,16 +324,18 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
 
     // Load files and prepare for relocation
     for (int file_index = 0; file_index < file_count; file_index++) {
-        uint32_t text_offset, data_offset, ktext_offset, kdata_offset;
+        uint32_t text_offset, data_offset, bss_offset, ktext_offset, kdata_offset;
         if (file_index == 0) {
             text_offset = 0;
             data_offset = 0;
+            bss_offset = 0;
             ktext_offset = 0;
             kdata_offset = 0;
         }
         else {
             text_offset = final_header.text;
             data_offset = final_header.data;
+            bss_offset = final_header.bss;
             ktext_offset = final_header.ktext;
             kdata_offset = final_header.kdata;
         }
@@ -341,7 +352,7 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
         }
 
         // Initialize source file
-        file_init(&file, text_offset, data_offset, ktext_offset, kdata_offset);
+        file_init(&file, text_offset, data_offset, bss_offset, ktext_offset, kdata_offset);
 
         // Load file (populate symbol table)
         load_symbols(&file, &global_symbols);
@@ -356,11 +367,12 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
     if (options.link_start) {
         const uint32_t text_offset = final_header.text;
         const uint32_t data_offset = final_header.data;
+        const uint32_t bss_offset = final_header.bss;
         const uint32_t ktext_offset = final_header.ktext;
         const uint32_t kdata_offset = final_header.kdata;
         FILE *f = open_object_file("__start.o", &final_header, &start.file);
         if (f == NULL) goto _link_failed;
-        file_init(&start, text_offset, data_offset, ktext_offset, kdata_offset);
+        file_init(&start, text_offset, data_offset, bss_offset, ktext_offset, kdata_offset);
         load_symbols(&start, &global_symbols);
         fclose(f);
     }
@@ -382,6 +394,11 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
     if (st_add_symbol(&global_symbols, "__ENTRY", final_header.entry, TEXT, GLOBAL) == 0) goto _link_failed;
 
     // At this point, every file has been read and we know every final address
+
+    // Add the base address to every BSS segment
+    for (int i = 0; i < file_count; i++) {
+        source_files[i].bss_offset += final_header.data;
+    }
 
     // Go through each file and resolve every relocation
     for (int file_index = 0; file_index < file_count; file_index++) {

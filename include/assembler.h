@@ -16,6 +16,7 @@ struct Assembler {
     Text *preprocessed;
     DataList *data_list;
     DataList *kernel_data;
+    BSSList *bss_list;
     InstructionList *instruction_list;
     InstructionList *kernel_text;
     SymbolTable *symbol_table;

@@ -20,6 +20,8 @@ enum DataType {
 typedef struct Data Data;
 typedef struct DataList DataList;
 
+typedef struct BSSList BSSList;
+
 struct Data {
     enum DataType type;
     union {
@@ -39,6 +41,10 @@ struct DataList {
     size_t cap;
     uint32_t data_offset;
     Data *list;
+};
+
+struct BSSList {
+    uint32_t bss_offset;
 };
 
 /* === DATA PARSING === */
@@ -67,11 +73,21 @@ void dl_debug(const DataList * data_list);
 
 void data_debug(Data data);
 
+/* === BSSLIST METHODS === */
+
+int bl_init(BSSList * bss_list, uint32_t entry);
+
+void bss_bump(BSSList * bss_list, size_t size);
+
+void bl_debug(const BSSList * bss_list);
+
 /* === DATA PARSING METHODS === */
 
 int read_directive(const char *directive, enum DataType *type);
 
-uint32_t data_align(int type, const DataList *);
+uint32_t data_align(int type, uint32_t offset);
+
+uint32_t raw_align(int amount, uint32_t offset);
 
 int data_pad(Data data,  DataList * data_list);
 
@@ -79,6 +95,10 @@ int add_padding(const Line *line, uint32_t bytes, DataList *data_list);
 
 int add_aligned(const Line *line, const char *token, DataList *data_list);
 
+int bss_align(const char *token, BSSList *bss_list);
+
 int add_space(const Line *line, const char *token, DataList *data_list);
+
+int bss_add_space(const char *token, BSSList *bss_list);
 
 #endif //MIPS_ASSEMBLER_DATA_PARSER_H
