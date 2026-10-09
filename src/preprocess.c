@@ -274,7 +274,7 @@ int sanitize(Line *line) {
             continue;
         }
         // Break if comment
-        if (oldstr[i] == COMMENT) break;
+        if (oldstr[i] == COMMENT && !reading_string) break;
 
         // Otherwise, we should add the character
         if (oldstr[i] == '"') {
@@ -435,7 +435,7 @@ int preprocess(FILE *inp, Text *text) {
     }
     try(mt_init(macro_table), 0);
 
-    try(preprocess_file(pseudo, text, macro_table), 0);
+    // try(preprocess_file(pseudo, text, macro_table), 0);
     try(preprocess_file(inp, text, macro_table), 0)
 
     // text_debug(text);
