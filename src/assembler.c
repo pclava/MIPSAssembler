@@ -884,6 +884,18 @@ int assemble(Text *preprocessed, const char *output) {
         return 0;
     }
 
+    // Bump data lists to be multiples of four
+    Data space = {0};
+    space.type = SPACE;
+    uint32_t offset = assembler.data_list->data_offset;
+    space.size = (4 - (offset % 4)) % 4;
+    add_data(assembler.data_list, space);
+    offset = assembler.kernel_data->data_offset;
+    space.size = (4 - (offset % 4)) % 4;
+    add_data(assembler.kernel_data, space);
+    offset = assembler.bss_list->bss_offset;
+    assembler.bss_list->bss_offset += (4 - (offset % 4)) % 4;
+
     // Check for undefined local symbols and make global
     // This behavior essentially automatically imports any undefined symbol
     // in the hopes that the linker will find them
