@@ -71,6 +71,8 @@ void dl_destroy(const DataList * data_list);
 
 void dl_debug(const DataList * data_list);
 
+void dl_pad(DataList * data_list);
+
 void data_debug(Data data);
 
 /* === BSSLIST METHODS === */

@@ -385,3 +385,12 @@ int bss_add_space(const char *token, BSSList *bss_list) {
     bss_bump(bss_list, n);
     return 1;
 }
+
+// Adds empty space to data list to bring it to a multiple of 4
+void dl_pad(DataList *data_list) {
+    Data space = {0};
+    space.type = SPACE;
+    uint32_t offset = data_list->data_offset;
+    space.size = (4 - (offset % 4)) % 4;
+    if (space.size != 0) add_data(data_list, space);
+}
