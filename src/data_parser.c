@@ -96,14 +96,19 @@ int string(Data * data, const char * str, SymbolTable *symbol_table) {
         raise_error(ARG_INV, str, __FILE__);
         return 0;
     }
-    // if no closing quote
-    if (str[data->size+1] != '\"') {
-        raise_error(ARG_INV, str, __FILE__);
-        return 0;
-    }
+    // if no closing quote???
+    // if (str[data->size+1] != '\"') {
+    //     raise_error(ARG_INV, str, __FILE__);
+    //     return 0;
+    // }
     data->type = STRING;
     data->isSymbol = 0;
-    data->value.string = strdup(str+1);
+    data->value.string = malloc(data->size);
+    if (data->value.string == NULL) {
+        raise_error(MEM, NULL, __FILE__);
+        return 0;
+    }
+    memcpy(data->value.string, str+1, data->size); // plus 1 to strip initial quote
     return 1;
 }
 
@@ -114,11 +119,11 @@ int string_nt(Data * data, const char *str, SymbolTable *symbol_table) {
         raise_error(ARG_INV, str, __FILE__);
         return 0;
     }
-    // if no closing quote
-    if (strrchr(str, '"') == str) {
-        raise_error(ARG_INV, str, __FILE__);
-        return 0;
-    }
+    // if no closing quote (TODO: ??? i dont think this is needed, so why did i put it here???? same with the other string function)
+    // if (strrchr(str, '"') == str) {
+    //     raise_error(ARG_INV, str, __FILE__);
+    //     return 0;
+    // }
     data->type = STRING_NT;
     data->isSymbol = 0;
     data->value.string = strdup(str+1);
@@ -212,6 +217,19 @@ void data_debug(const Data data) {
     }
 }
 
+int bl_init(BSSList * bss_list, uint32_t entry) {
+    bss_list->bss_offset = entry;
+    return 1;
+}
+
+void bss_bump(BSSList * bss_list, size_t size) {
+    bss_list->bss_offset += size;
+}
+
+void bl_debug(const BSSList * bss_list) {
+    printf("BSS Size: %d\n", bss_list->bss_offset);
+}
+
 // Updates the DataType variable at the given pointer based on the input string
 int read_directive(const char *directive, enum DataType *type) {
     if (directive[0] != '.') {
@@ -241,9 +259,16 @@ int read_directive(const char *directive, enum DataType *type) {
     return 1;
 }
 
+// returns the number of bytes needed to add to align to boundary
+uint32_t raw_align(const int boundary, const uint32_t offset) {
+    uint32_t bytes = 0;
+    while ((offset + bytes) % boundary != 0) bytes++;
+    return bytes;
+}
+
 /* Returns the number of bytes needed to increment data_addr such that
 it is on a given boundary (where for type: 0 = byte; 1 = half; 2 = word; 3 = double) */
-uint32_t data_align(const int type, const DataList *data_list) {
+uint32_t data_align(const int type, const uint32_t offset) {
     int x;
     switch (type) {
         case 0:
@@ -262,9 +287,7 @@ uint32_t data_align(const int type, const DataList *data_list) {
             return -1;
     }
 
-    uint32_t bytes = 0;
-    while ((data_list->data_offset + bytes) % x != 0) bytes++;
-    return bytes;
+    return raw_align(x, offset);
 }
 
 // Adds necessary padding bytes such that .word and .half directives begin on the correct boundaries
@@ -275,7 +298,7 @@ int data_pad(const Data data, DataList *data_list) {
     } else if (data.type == HALF) {
         n = 1;
     }
-    const uint32_t bytes = data_align(n, data_list);
+    const uint32_t bytes = data_align(n, data_list->data_offset);
     return add_padding(data.line, bytes, data_list);
 }
 
@@ -300,7 +323,7 @@ int add_aligned(const Line *line, const char *token, DataList * data_list) {
         return 0;
     }
 
-    const uint32_t bytes = data_align((int) n, data_list);
+    const uint32_t bytes = data_align((int) n, data_list->data_offset);
     if (bytes == (uint32_t) -1) {
         raise_error(ARG_INV, token, __FILE__);
         return 0;
@@ -313,6 +336,24 @@ int add_aligned(const Line *line, const char *token, DataList * data_list) {
         return 0;
     }
     return x;
+}
+
+int bss_align(const char *token, BSSList * bss_list) {
+    char *endptr;
+    const long n = strtol(token, &endptr, 10);
+    if (*endptr != '\0') {
+        raise_error(ARG_INV, token, __FILE__);
+        return 0;
+    }
+
+    const uint32_t bytes = raw_align((int) n, bss_list->bss_offset);
+    if (bytes == (uint32_t) -1) {
+        raise_error(ARG_INV, token, __FILE__);
+        return 0;
+    }
+
+    bss_bump(bss_list, bytes);
+    return 1;
 }
 
 // Adds any number of padding bytes (.space directive)
@@ -331,4 +372,25 @@ int add_space(const Line *line, const char *token, DataList * data_list) {
         return 0;
     }
     return x;
+}
+
+int bss_add_space(const char *token, BSSList *bss_list) {
+    char *endptr;
+    const long n = strtol(token, &endptr, 10);
+    if (*endptr != '\0' || n <= 0) {
+        raise_error(ARG_INV, token, __FILE__);
+        return 0;
+    }
+
+    bss_bump(bss_list, n);
+    return 1;
+}
+
+// Adds empty space to data list to bring it to a multiple of 4
+void dl_pad(DataList *data_list) {
+    Data space = {0};
+    space.type = SPACE;
+    uint32_t offset = data_list->data_offset;
+    space.size = (4 - (offset % 4)) % 4;
+    if (space.size != 0) add_data(data_list, space);
 }

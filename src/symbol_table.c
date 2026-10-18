@@ -59,7 +59,7 @@ int st_add_struct(SymbolTable *table, const Symbol symbol, const char *name) {
         table->buckets[index]->next = NULL;
         table->size++;
         // Add to string table
-        new->item.index = strtab_add(table->string_table, name);
+        table->buckets[index]->item.index = strtab_add(table->string_table, name);
     }
     else {
         SymbolBucket *prev = NULL;
@@ -168,6 +168,8 @@ void symbol_debug(const SymbolTable *st, const Symbol s) {
         printf("%s: .text + 0x%.8x, binding %d\n", st_get_string(st, s), s.offset, s.binding);
     else if (s.segment == DATA)
         printf("%s: .data + 0x%.8x, binding %d\n", st_get_string(st, s), s.offset, s.binding);
+    else if (s.segment == BSS)
+        printf("%s: .bss + 0x%.8x, binding %d\n", st_get_string(st, s), s.offset, s.binding);
     else if (s.segment == KTEXT)
         printf("%s: .ktext + 0x%.8x, binding %d\n", st_get_string(st, s), s.offset, s.binding);
     else if (s.segment == KDATA)

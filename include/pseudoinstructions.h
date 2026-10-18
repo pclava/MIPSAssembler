@@ -4,6 +4,7 @@
 
 #define MACRO_TABLE_LENGTH 256
 #define MACRO_SIZE 32
+#define MACRO_ARGS 5
 
 typedef struct Macro Macro;
 typedef struct MacroBucket MacroBucket;
@@ -18,7 +19,7 @@ struct Macro {
     char name[MACRO_SIZE];
     Line *definition;
     size_t definition_length;
-    char args[3][32];
+    char args[MACRO_ARGS][32];
     enum MacroType type; // macro (0) or symbolic constant (1)
 };
 

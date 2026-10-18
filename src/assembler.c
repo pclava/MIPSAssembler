@@ -3,6 +3,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <signal.h>
+
 #include "utils.h"
 #include "pseudoinstructions.h"
 #include "instructions.h"
@@ -81,6 +83,13 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
 
         // Read mnemonic. This will catch the first token not ending in ':' and set readMnemonic to true.
         else if (!readMnemonic) {
+            // Don't allow directives after labels in text segment
+            if (token[0] == '.') {
+                raise_error(ARG_INV, token, __FILE__);
+                error_context("Directives not supported after labels in text segment. If you need a dangling label, add a nop");
+                return 0;
+            }
+
             if (len >= MNEMONIC_LENGTH) {
                 raise_error(SIZE_ERR, token, __FILE__);
                 return 0;
@@ -204,7 +213,7 @@ int read_data(const Assembler *assembler, const Line *line) {
     else if (CURRENT_SEGMENT == KDATA) {
         list = assembler->kernel_data;
     }
-    else {
+    else if (CURRENT_SEGMENT != BSS) {
         free(argument);
         return 0;
     }
@@ -259,24 +268,42 @@ int read_data(const Assembler *assembler, const Line *line) {
         // Token is an argument (i.e., a data item to store)
         else {
             if (CURRENT_DIRECTIVE == ALIGN) {
+
                 if (argc != 0) { // Should only have one argument
                     raise_error(ARGS_INV, NULL, __FILE__);
                     free(argument);
                     return 0;
                 }
 
-                // Parse to integer
-                if (add_aligned(line, token, list) == 0) {
-                    free(argument);
-                    return 0;
-                }
+                if (CURRENT_SEGMENT == BSS) {
+                    if (bss_align(token, assembler->bss_list) == 0) {
+                        free(argument);
+                        return 0;
+                    }
 
-                // Save label(s) (after alignment)
-                if (label_count != 0) {
-                    for (size_t i = 0; i < label_count; i++) {
-                        if (st_add_symbol(assembler->symbol_table, labels[i].str, list->data_offset, CURRENT_SEGMENT, LOCAL) == 0) {
-                            free(argument);
-                            return 0;
+                    // Save label(s) (after alignment)
+                    if (label_count != 0) {
+                        for (size_t i = 0; i < label_count; i++) {
+                            if (st_add_symbol(assembler->symbol_table, labels[i].str, assembler->bss_list->bss_offset, CURRENT_SEGMENT, LOCAL) == 0) {
+                                free(argument);
+                                return 0;
+                            }
+                        }
+                    }
+                } else {
+                    // Parse to integer
+                    if (add_aligned(line, token, list) == 0) {
+                        free(argument);
+                        return 0;
+                    }
+
+                    // Save label(s) (after alignment)
+                    if (label_count != 0) {
+                        for (size_t i = 0; i < label_count; i++) {
+                            if (st_add_symbol(assembler->symbol_table, labels[i].str, list->data_offset, CURRENT_SEGMENT, LOCAL) == 0) {
+                                free(argument);
+                                return 0;
+                            }
                         }
                     }
                 }
@@ -289,23 +316,49 @@ int read_data(const Assembler *assembler, const Line *line) {
                     return 0;
                 }
 
-                // Save label(s) (before adding space)
-                if (label_count != 0) {
-                    for (size_t i = 0; i < label_count; i++) {
-                        if (st_add_symbol(assembler->symbol_table, labels[i].str, list->data_offset, CURRENT_SEGMENT, LOCAL) == 0) {
-                            free(argument);
-                            return 0;
+                if (CURRENT_SEGMENT == BSS) {
+                    // Add labels
+                    if (label_count != 0) {
+                        for (size_t i = 0; i < label_count; i++) {
+                            if (st_add_symbol(assembler->symbol_table, labels[i].str, assembler->bss_list->bss_offset, CURRENT_SEGMENT, LOCAL) == 0) {
+                                free(argument);
+                                return 0;
+                            }
                         }
+                    }
+
+                    // Parse to integer
+                    if (bss_add_space(token, assembler->bss_list) == 0) {
+                        free(argument);
+                        return 0;
+                    }
+                } else {
+                    // Save label(s) (before adding space)
+                    if (label_count != 0) {
+                        for (size_t i = 0; i < label_count; i++) {
+                            if (st_add_symbol(assembler->symbol_table, labels[i].str, list->data_offset, CURRENT_SEGMENT, LOCAL) == 0) {
+                                free(argument);
+                                return 0;
+                            }
+                        }
+                    }
+
+                    // Parse to integer
+                    if (add_space(line, token, list) == 0) {
+                        free(argument);
+                        return 0;
                     }
                 }
 
-                // Parse to integer
-                if (add_space(line, token, list) == 0) {
+            }
+            else {
+                // Anything else is not allowed in bss
+                if (CURRENT_SEGMENT == BSS) {
+                    raise_error(ARGS_INV, NULL, __FILE__);
                     free(argument);
                     return 0;
                 }
-            }
-            else {
+
                 memset(argument, '\0', argument_size);
                 int string_length = 0;
 
@@ -508,6 +561,95 @@ int write_data_list(FILE *file, Assembler *assembler) {
     return 1;
 }
 
+/* === COMM DIRECTIVE === */
+
+// handles the comm directive
+// should be of the form: .comm symbol length [alignment]
+// where symbol is a new symbol *declaration*
+int handle_comm(Assembler *assembler, Line *line) {
+    char *text = line_get_str(line);
+    if (text == NULL) return 0;
+    char line_buffer[strlen(text)+1];
+    strcpy(line_buffer, text);
+
+    // Tokenize
+    char *token = tokenize(line_buffer, ' ');
+    int argc  = 0;
+
+    BSSList *list = assembler->bss_list;
+
+    String name;
+    uint32_t size = 0;
+
+    while (token != NULL) {
+        if (argc == 0) {
+            // First token should be .comm
+            if (strcmp(token, ".comm") != 0) {
+                raise_error(ARGS_INV, NULL, __FILE__);
+                return 0;
+            }
+        }
+
+        if (argc == 1) {
+            // Second token should be a symbol declaration. Process and set aside for later
+            string_init(&name);
+
+            // Process name
+            if (isdigit(token[0])) {
+                raise_error(SYMBOL_INV, token, __FILE__);
+                return 0;
+            }
+
+            for (size_t i = 0; i < strlen(token); i++) {
+                if ( !issymbol(token[i]) ) {
+                    raise_error(SYMBOL_INV, token, __FILE__);
+                    return 0;
+                }
+                string_set(&name, i, token[i]);
+            }
+        }
+
+        if (argc == 2) {
+            // Third token should be size
+            char *endptr;
+            const long n = strtol(token, &endptr, 10);
+            if (*endptr != '\0') {
+                raise_error(ARG_INV, token, __FILE__);
+                return 0;
+            }
+            size = n;
+        }
+
+        if (argc == 3) {
+            // Fourth token should be alignment. We can bump immediately
+            if (bss_align(token, list) == 0) return 0;
+        }
+
+        if (argc >= 4) {
+            raise_error(ARGS_INV, NULL, __FILE__);
+            error_context(".comm can have up to 3 arguments");
+            return 0;
+        }
+
+        argc++;
+        token = tokenize(NULL, ' ');
+    }
+
+    if (argc != 3 && argc != 4) {
+        raise_error(ARGS_INV, NULL, __FILE__);
+        return 0;
+    }
+
+    // directive has been processed, and alignment performed if necessary
+
+    // add symbol
+    if (st_add_symbol(assembler->symbol_table, name.str, list->bss_offset, BSS, LOCAL) == 0) return 0;
+
+    // bump bss
+    bss_bump(list, size);
+    return 1;
+}
+
 /* === MAIN === */
 
 // Parses the output of the preprocessor into the symbol table, instruction list, and data list.
@@ -540,6 +682,7 @@ int assembler_first_pass(const Assembler *assembler) {
                 goto continue_line;
             }
             if (strcmp(directive, "data") == 0) {
+                dl_pad(assembler->data_list);
                 CURRENT_SEGMENT = DATA;
                 goto continue_line;
             }
@@ -548,6 +691,7 @@ int assembler_first_pass(const Assembler *assembler) {
                 goto continue_line;
             }
             if (strcmp(directive, "kdata") == 0) {
+                dl_pad(assembler->kernel_data);
                 CURRENT_SEGMENT = KDATA;
                 goto continue_line;
             }
@@ -573,6 +717,17 @@ int assembler_first_pass(const Assembler *assembler) {
                 }
                 goto continue_line;
             }
+            if (strcmp(directive, "bss") == 0) {
+                uint32_t offset = assembler->bss_list->bss_offset;
+                assembler->bss_list->bss_offset += (4 - (offset % 4)) % 4;
+                CURRENT_SEGMENT = BSS;
+                goto continue_line;
+            }
+            if (strcmp(directive, "comm") == 0) {
+                // comm can be in any segment, so we handle here
+                try(handle_comm(assembler, line), 0);
+                goto continue_line;
+            }
             if (CURRENT_SEGMENT != DATA && CURRENT_SEGMENT != KDATA) { // Any other directive must be in the data segment
                 raise_error(TOKEN_ERR, directive, __FILE__);
                 return 0;
@@ -585,7 +740,7 @@ int assembler_first_pass(const Assembler *assembler) {
         }
 
         // DATA
-        else if (CURRENT_SEGMENT == DATA || CURRENT_SEGMENT == KDATA) {
+        else if (CURRENT_SEGMENT == DATA || CURRENT_SEGMENT == KDATA || CURRENT_SEGMENT == BSS) {
             try(read_data(assembler, line), 0);
         }
 
@@ -683,6 +838,7 @@ int assembler_second_pass(Assembler *assembler, const char *output) {
     header.magic = MOF_MAGIC;
     header.text = assembler->instruction_list->text_offset;
     header.data = assembler->data_list->data_offset;
+    header.bss = assembler->bss_list->bss_offset;
     header.ktext = assembler->kernel_text->text_offset;
     header.kdata = assembler->kernel_data->data_offset;
     header.rels = assembler->relocation_table->len * MOF_RELOCSIZE;
@@ -706,6 +862,12 @@ int assemble(Text *preprocessed, const char *output) {
         assembler_destroy(&assembler);
         return 0;
     }
+
+    // Bump data lists and bss to be multiples of four
+    dl_pad(assembler.data_list);
+    dl_pad(assembler.kernel_data);
+    uint32_t offset = assembler.bss_list->bss_offset;
+    assembler.bss_list->bss_offset += (4 - (offset % 4)) % 4;
 
     // Check for undefined local symbols and make global
     // This behavior essentially automatically imports any undefined symbol
@@ -745,6 +907,7 @@ int assembler_init(Assembler *assembler, Text *preprocessed) {
     assembler->preprocessed = preprocessed;
     assembler->symbol_table = NULL;
     assembler->data_list = NULL;
+    assembler->bss_list = NULL;
     assembler->instruction_list = NULL;
     assembler->instruction_table = NULL;
     assembler->relocation_table = NULL;
@@ -777,6 +940,15 @@ int assembler_init(Assembler *assembler, Text *preprocessed) {
     }
     try(dl_init(data_list, 0), 0);
     assembler->data_list = data_list;
+
+    // Initialize BSS list
+    BSSList *bss_list = malloc(sizeof(BSSList));
+    if (bss_list == NULL) {
+        raise_error(MEM, NULL, __FILE__);
+        return 0;
+    }
+    try(bl_init(bss_list, 0), 0);
+    assembler->bss_list = bss_list;
 
     // Initialize kernel text
     InstructionList *kernel_text = malloc(sizeof(InstructionList));
@@ -823,6 +995,10 @@ void assembler_destroy(Assembler *assembler) {
         dl_destroy(assembler->data_list);
         free(assembler->data_list);
     }
+    if (assembler->bss_list != NULL) {
+        // rl_destroy(assembler->bss_list);
+        free(assembler->bss_list);
+    }
     if (assembler->kernel_data != NULL) {
         dl_destroy(assembler->kernel_data);
         free(assembler->kernel_data);
@@ -862,6 +1038,12 @@ void assembler_debug(const Assembler *assembler) {
         dl_debug(assembler->data_list);
     } else {
         printf("No data list found\n");
+    }
+
+    if (assembler->bss_list != NULL) {
+        bl_debug(assembler->bss_list);
+    } else {
+        printf("No bss list found\n");
     }
 
     if (assembler->kernel_data != NULL) {

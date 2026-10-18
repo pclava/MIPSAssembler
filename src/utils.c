@@ -121,7 +121,7 @@ Immediate parse_imm(const char * str, SymbolTable *symbol_table, int read_escape
             imm.intValue = (int32_t) c;
             imm.type = NUM;
         }
-        else if (str[2] == '"') {
+        else if (str[2] == '\0') {
             imm.intValue = (int32_t) str[1];
             imm.type = NUM;
             endptr = &str[3];
@@ -513,6 +513,18 @@ char * read_string(char *dst, size_t *dst_size, char *token, int *len) {
 
     // Loop until closing quote is found
     while (c != '\"') {
+        // Resize buffer
+        if (j >= *dst_size) {
+            *dst_size = *dst_size * 2;
+            char *new = realloc(dst, *dst_size);
+            if (new == NULL) {
+                raise_error(MEM, NULL, __FILE__);
+                free(dst);
+                return NULL;
+            }
+            dst = new;
+        }
+
         if (c == '\0') {
             token = tokenize(NULL, ' ');
             if (token == NULL) {
@@ -528,18 +540,6 @@ char * read_string(char *dst, size_t *dst_size, char *token, int *len) {
             j++;
             c = token[i];
             continue;
-        }
-
-        // Resize buffer
-        if (j >= *dst_size) {
-            *dst_size = *dst_size * 2;
-            char *new = realloc(dst, *dst_size);
-            if (new == NULL) {
-                raise_error(MEM, NULL, __FILE__);
-                free(dst);
-                return NULL;
-            }
-            dst = new;
         }
 
         // Write to string
@@ -571,8 +571,8 @@ char * read_string(char *dst, size_t *dst_size, char *token, int *len) {
         dst = new;
     }
 
-    dst[j] = '\"';
-    dst[j+1] = '\0';
+    // dst[j] = '\"';
+    dst[j] = '\0';
 
     // Check if characters remain in buffer
     if (token[++i] != '\0') {
