@@ -1,35 +1,52 @@
 #ifndef MIPS_ASSEMBLER_INSTRUCTIONS_H
 #define MIPS_ASSEMBLER_INSTRUCTIONS_H
 
+#include <stdbool.h>
+
 #include "instruction_parser.h"
 #include "symbol_table.h"
 #include "reloc_table.h"
 
 /* === TYPES === */
 
-enum InstructionFormat {
-    R,
-    I,
-    J
-};
-
 typedef struct InstrDesc InstrDesc;
 typedef struct ITBucket ITBucket;
 typedef struct InstructionTable InstructionTable;
 
-#define COP0 0x10   // opcode for coprocessor 0 instructions
-#define C0 0b10000  // RS field for some COP0 instructions
+typedef enum ArgPosition ArgPosition;
+typedef struct ArgValue ArgValue;
+
+enum ArgPosition {
+    NOARG,
+
+    // Register
+    RS,
+    RT,
+    RD,
+
+    // Immediate
+    SHAMT,
+    JADDR,
+    IMM16,
+    PC16,
+    REGOFF,
+    SEL,
+};
+
+// Pre-determined values (usually rs) (note: default value of zero does not need to be specified)
+struct ArgValue {
+    ArgPosition position;
+    int value;
+};
 
 struct InstrDesc {
     char *mnemonic;
-    int opcode;
-    int funct;
-    int rs;     // used by coprocessor 0 instructions, 0 otherwise
-    enum InstructionFormat format;
+    int argc;
 
-    // What registers the given order of registers correspond to (rs=0,rt=1,rd=2,none=-1)
-    // E.g., {1,0,-1} means "rt, rs"
-    int register_order[3];
+    int opcode;
+    ArgPosition args[ARGCOUNT];
+    ArgValue defaults[5];
+    int funct;                  // used by some instructions, -1 otherwise
 };
 
 struct ITBucket {
@@ -51,12 +68,12 @@ int it_create(InstructionTable *table);
 
 int it_insert(InstructionTable *table, InstrDesc desc);
 
-InstrDesc *it_lookup(const InstructionTable *table, const char *mnemonic);
+InstrDesc *it_lookup(const InstructionTable *table, const char *mnemonic, int argc);
 
 void it_destroy(const InstructionTable *table);
 
 /* === INSTRUCTION CONVERSION === */
-int get_registers(unsigned int *out, const unsigned char *in, const int *order);
+uint32_t convert_instruction(Instruction instruction, InstructionTable *instruction_table, RelocationTable *reloc_table, uint32_t current_addr, Segment current_segment);
 
 uint32_t convert_rtype(Instruction instruction, const InstrDesc *desc);
 

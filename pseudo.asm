@@ -4,7 +4,8 @@
 .define _DATA 0x10010000
 .define _STACK 0x7fffffff
 .define _HEAP 0x10080000
-.define _KTEXT 0x80000180
+.define _EXCVEC 0x80000180
+.define _KTEXT 0x80000000
 .define _KDATA 0x90000000
 .define _DISPLAYADDR 0xffff0000
 .define _MMIO 0xfffffa00
@@ -22,6 +23,7 @@
 .define _SYSWRITEFILE   15
 .define _SYSCLOSEFILE   16
 .define _SYSEXIT2       17
+# non-canonical:
 .define _SYSPRINTHEX    20
 .define _SYSPRINTBIN    21
 .define _SYSPRINTU      22
@@ -30,6 +32,107 @@
 .define _SYSSEED        25
 .define _SYSRAND        26
 .define _SYSRANDRANGE   27
+.define _SYSTERMCTL     28
+.define _SYSEXEC        29
+.define _SYSFORK        30
+.define _SYSWAIT        31
+
+.macro peek %r %tmp
+    addiu   %tmp, $v0, 0
+    addiu   $v0, %r, 0
+    break
+    addiu   $v0, %tmp, 0
+.end_macro
+
+# TODO: implement in assembler
+.macro negu %rd, %rs
+    subu    %rd, $0, %rs
+.end_macro
+
+# TODO: implement in assembler
+.macro mul %rd, %rs, %rt
+    mult    %rs, %rt
+    mflo    %rd
+.end_macro
+
+# TODO: implement in assembler
+.macro seb %rd, %rt
+    addiu   $sp, $sp, -4
+    sw      $at, 0($sp)
+
+    sll     $at, %rt, 24
+    sra     %rd, $at, 24
+
+    lw      $at, 0($sp)
+    addiu   $sp, $sp, 4
+.end_macro
+
+# TODO: implement in assembler
+.macro ext %rt %rs %pos %size
+
+    addiu   $sp, $sp, -8
+    sw      $t0, 0($sp)     # Save $t0
+    sw      $at, 4($sp)     # Save $at
+
+    # Calculate 32-size
+    addiu   $at, $0, 32     # Get 32
+    addiu   $t0, $0, %size  # Get size
+    subu    $t0, $at, $t0   # 32-size
+
+    # Create mask of 1s
+    addiu   $at, $0, -1     # All 1s
+    srlv    $at, $at, $t0   # Shift mask by 32-size
+
+    # Mask with rs
+    srl     $t0, %rs, %pos  # Shift rs right by pos
+    and     $t0, $t0, $at   # AND with mask
+
+    # Create hole in rt
+    nor     $at, $at, $0    # Invert mask
+    and     %rt, %rt, $at   # Clear bits in rt
+
+    # Merge
+    or      %rt, %rt, $t0   # OR bits saved in rs with masked rt
+
+    lw      $at, 4($sp)     # Load $at
+    lw      $t0, 0($sp)     # Load $t0
+    addiu   $sp, $sp, 8
+
+.end_macro
+
+# TODO: implement in assembler
+.macro ins %rt %rs %pos %size
+
+    addiu   $sp, $sp, -8
+    sw      $t0, 0($sp)     # Save $t0
+    sw      $at, 4($sp)     # Save $at
+
+    # Calculate 32-size
+    addiu   $at, $0, 32     # Get 32
+    addiu   $t0, $0, %size  # Get size
+    subu    $t0, $at, $t0   # 32-size
+
+    # Create mask of 1s
+    addiu   $at, $0, -1     # All 1s
+    srlv    $at, $at, $t0   # Shift mask by 32-size
+
+    # Isolate bits in %rs and move to position
+    and     $t0, $at, %rs   # Isolate bits
+    sll     $t0, $t0, %pos  # Shift to position
+
+    # Create hole in %rt
+    sll     $at, $at, %pos  # Shift mask
+    nor     $at, $at, $0    # Invert (turn 0001111000 -> 1110000111)
+    and     %rt, %rt, $at   # Clear bits in rt
+
+    # Merge
+    or      %rt, %rt, $t0   # OR the cleared $rt with mask created in $t0
+
+    lw      $at, 4($sp)     # Load $at
+    lw      $t0, 0($sp)     # Load $t0
+    addiu   $sp, $sp, 8
+
+.end_macro
 
 # Push to stack
 .macro push %r

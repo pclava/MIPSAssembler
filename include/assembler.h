@@ -33,7 +33,7 @@ void assembler_debug(const Assembler *assembler);
 
 /* === ASSEMBLY METHODS === */
 
-int assembler_first_pass(Assembler *assembler);
+int assembler_first_pass(const Assembler *assembler);
 
 int assembler_second_pass(Assembler *assembler, const char *output);
 

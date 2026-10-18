@@ -8,8 +8,8 @@ typedef struct InstructionList InstructionList;
 
 struct Instruction {
     char mnemonic[MNEMONIC_LENGTH]; // longest mnemonic is 5 or 6 characters, including some extra bytes just in case
-    unsigned char registers[3];
-    Immediate imm;
+    Argument args[ARGCOUNT];
+    unsigned char argc;
     const Line *line; // corresponding line in the Text list
 } ;
 
@@ -28,8 +28,8 @@ int add_instruction(InstructionList * instruction_list, Instruction instr);
 
 void il_destroy(const InstructionList * instruction_list);
 
-void il_debug(const InstructionList *);
-
-void instruction_debug(Instruction);
+// void il_debug(const InstructionList *);
+//
+// void instruction_debug(Instruction);
 
 #endif //MIPS_ASSEMBLER_INSTRUCTION_PARSER_H

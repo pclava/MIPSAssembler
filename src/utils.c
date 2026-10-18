@@ -137,7 +137,7 @@ Immediate parse_imm(const char * str, SymbolTable *symbol_table, int read_escape
     else if (isdigit(str[0]) || str[0] == '-') {
         imm.type = NUM;
         int base = 10; // assume 10
-        char *s = str;
+        const char *s = str;
         if (str[0] == '0') {
             if (isalpha(str[1])) {
                 switch (str[1]) {
