@@ -10,90 +10,97 @@ This handles the representation of the MIPS instruction set
 as well as converting the intermediate representation Instruction structures to machine code
 */
 
-#define INSTRUCTION_COUNT 72
+#define COP0 0x10       // opcode for coprocessor 0 instructions
+#define C0 0b10000      // RS field for some COP0 instructions
+#define SPECIAL 0x00    // opcode for most r-type instructions
+#define MFMC0 0b01011
+
+#define INSTRUCTION_COUNT 74
 #define INSTRUCTION_TABLE_SIZE 256 // SHOULD BE DECENTLY LARGER THAN INSTRUCTION COUNT
 
-// ADD NEW INSTRUCTIONS HERE
 static const InstrDesc instr_table[INSTRUCTION_COUNT] = {
-    // MNEMONIC, OPCODE, FUNCT, RS, FORMAT, REGISTER ORDER
+    // MMEMONIC, ARGC, OPCODE, RS, ARGS, DEFAULTS, FUNCT
 
-    // MAIN ENCODING
-    { "beq",   0x04, -1, 0, I, {0,1,-1} },    // Conditional branches
-    { "bne",   0x05, -1, 0, I, {0,1,-1} },
-    { "blez",  0x06, -1, 0, I, {0,-1,-1} },
-    { "bgtz",  0x07, -1, 0, I, {0,-1,-1} },
-    { "addi",  0x08, -1, 0, I, {1,0,-1} },     // Traditional O-type, i.e. R[rt] = f(R[rs])
-    { "addiu", 0x09, -1, 0, I, {1,0,-1} },
-    { "slti",  0x0a, -1, 0, I, {1,0,-1} },
-    { "sltiu", 0x0b, -1, 0, I, {1,0,-1} },
-    { "andi",  0x0c, -1, 0, I, {1,0,-1} },
-    { "ori",   0x0d, -1, 0, I, {1,0,-1} },
-    { "xori",  0x0e, -1, 0, I, {1,0,-1} },
-    { "lui",   0x0f, -1, 0, I, {1,-1,-1} },
-    { "lb",    0x20, -1, 0, I, {1,-1,-1} },    // Memory instructions
-    { "lh",    0x21, -1, 0, I, {1,-1,-1} },
-    { "lwl",   0x22, -1, 0, I, {1,-1,-1} },
-    { "lw",    0x23, -1, 0, I, {1,-1,-1} },
-    { "lbu",   0x24, -1, 0, I, {1,-1,-1} },
-    { "lhu",   0x25, -1, 0, I, {1,-1,-1} },
-    { "lwr",   0x26, -1, 0, I, {1,-1,-1} },
-    { "sb",    0x28, -1, 0, I, {1,-1,-1} },
-    { "sh",    0x29, -1, 0, I, {1,-1,-1} },
-    { "swl",   0x2a, -1, 0, I, {1,-1,-1} },
-    { "sw",    0x2b, -1, 0, I, {1,-1,-1} },
-    { "swr",   0x2e, -1, 0, I, {1,-1,-1} },
-    { "j",     0x02, -1, 0, J, {-1,-1,-1} },  // J TYPE
-    { "jal",   0x03, -1, 0, J, {-1,-1,-1} },
+    // Main encoding
+    { "beq",    3, 0x04, {RS, RT, PC16},  {}, -1},
+    { "bne",    3, 0x05, {RS, RT, PC16},  {}, -1},
+    { "blez",   2, 0x06, {RS, PC16},      {}, -1},
+    { "bgtz",   2, 0x07, {RS, PC16},      {}, -1},
+    { "addi",   3, 0x08, {RT, RS, IMM16},  {}, -1},
+    { "addiu",  3, 0x09, {RT, RS, IMM16},  {}, -1},
+    { "slti",   3, 0x0a, {RT, RS, IMM16},  {}, -1},
+    { "sltiu",  3, 0x0b, {RT, RS, IMM16},  {}, -1},
+    { "andi",   3, 0x0c, {RT, RS, IMM16},  {}, -1},
+    { "ori",    3, 0x0d, {RT, RS, IMM16},  {}, -1},
+    { "xori",   3, 0x0e, {RT, RS, IMM16},  {}, -1},
+    { "lui",    2, 0x0f, {RT, IMM16},      {}, -1},
+    { "lb",     2, 0x20, {RT, REGOFF},     {}, -1},
+    { "lh",     2, 0x21, {RT, REGOFF},     {}, -1},
+    { "lwl",    2, 0x22, {RT, REGOFF},     {}, -1},
+    { "lw",     2, 0x23, {RT, REGOFF},     {}, -1},
+    { "lbu",    2, 0x24, {RT, REGOFF},     {}, -1},
+    { "lhu",    2, 0x25, {RT, REGOFF},     {}, -1},
+    { "lwr",    2, 0x26, {RT, REGOFF},     {}, -1},
+    { "sb",     2, 0x28, {RT, REGOFF},     {}, -1},
+    { "sh",     2, 0x29, {RT, REGOFF},     {}, -1},
+    { "swl",    2, 0x2a, {RT, REGOFF},     {}, -1},
+    { "sw",     2, 0x2b, {RT, REGOFF},     {}, -1},
+    { "sr",     2, 0x2e, {RT, REGOFF},     {}, -1},
+    { "j",      1, 0x02, {JADDR},          {}, -1},
+    { "jal",    1, 0x03, {JADDR},          {}, -1},
 
-    // SPECIAL ENCODING
-    { "sll",        0x00, 0x00, 0, R, {2,1,-1}     },  // R TYPE
-    { "nop",        0x00, 0x00, 0, R, {-1,-1,-1}   },
-    { "srl",        0x00, 0x02, 0, R, {2,1,-1}     },
-    { "sra",        0x00, 0x03, 0, R, {2,1,-1}     },
-    { "sllv",       0x00, 0x04, 0, R, {2,1,0}      },
-    { "srlv",       0x00, 0x06, 0, R, {2,1,0}      },
-    { "srav",       0x00, 0x07, 0, R, {2,1,0}      },
-    { "jr",         0x00, 0x08, 0, R, {0,-1,-1}    },
-    { "jalr",       0x00, 0x09, 0, R, {2,0,-1}      },
-    { "movz",       0x00, 0x0a, 0, R, {2,0,1}      },
-    { "movn",       0x00, 0x0b, 0, R, {2,0,1}      },
-    { "syscall",    0x00, 0x0c, 0, R, {-1,-1,-1}   },
-    { "break",      0x00, 0x0d, 0, R, {-1,-1,-1}   },
-    { "mfhi",       0x00, 0x10, 0, R, {2,-1,-1}    },
-    { "mthi",       0x00, 0x11, 0, R, {0,-1,-1}    },
-    { "mflo",       0x00, 0x12, 0, R, {2,-1,-1}    },
-    { "mtlo",       0x00, 0x13, 0, R, {0,-1,-1}    },
-    { "mult",       0x00, 0x18, 0, R, {0,1,-1}     },
-    { "multu",      0x00, 0x19, 0, R, {0,1,-1}     },
-    { "div",        0x00, 0x1a, 0, R, {0,1,-1}     },
-    { "divu",       0x00, 0x1b, 0, R, {0,1,-1}     },
-    { "add",        0x00, 0x20, 0, R, {2,0,1}      },
-    { "addu",       0x00, 0x21, 0, R, {2,0,1}      },
-    { "sub",        0x00, 0x22, 0, R, {2,0,1}      },
-    { "subu",       0x00, 0x23, 0, R, {2,0,1}      },
-    { "and",        0x00, 0x24, 0, R, {2,0,1}      },
-    { "or",         0x00, 0x25, 0, R, {2,0,1}      },
-    { "xor",        0x00, 0x26, 0, R, {2,0,1}      },
-    { "nor",        0x00, 0x27, 0, R, {2,0,1}      },
-    { "slt",        0x00, 0x2a, 0, R, {2,0,1}      },
-    { "sltu",       0x00, 0x2b, 0, R, {2,0,1}      },
-    { "tge",        0x00, 0x30, 0, R, {0,1,-1}     },
-    { "tgeu",       0x00, 0x31, 0, R, {0,1,-1}     },
-    { "tlt",        0x00, 0x32, 0, R, {0,1,-1}     },
-    { "tltu",       0x00, 0x33, 0, R, {0,1,-1}     },
-    { "teq",        0x00, 0x34, 0, R, {0,1,-1}     },
-    { "tne",        0x00, 0x36, 0, R, {0,1,-1}     },
+    // SPECIAL encoding
+    { "sll",        3, SPECIAL, {RD, RT, SHAMT},   {}, 0x00},
+    { "nop",        0, SPECIAL, {},                {}, 0},
+    { "srl",        3, SPECIAL, {RD, RT, SHAMT},   {}, 0x02},
+    { "sra",        3, SPECIAL, {RD, RT, SHAMT},   {}, 0x03},
+    { "sllv",       3, SPECIAL, {RD, RT, RS},      {}, 0x04},
+    { "srlv",       3, SPECIAL, {RD, RT, RS},      {}, 0x06},
+    { "srav",       3, SPECIAL, {RD, RT, RS},      {}, 0x07},
+    { "jr",         1, SPECIAL, {RS},              {}, 0x08},
+    { "jalr",       1, SPECIAL, {RS},              {{RD, 31}}, 0x09}, // TODO: check for multiple of the same name, distinguished by argc
+    { "jalr",       2, SPECIAL, {RD, RS},          {}, 0x09},
+    { "movz",       3, SPECIAL, {RD, RS, RT},      {}, 0x0a},
+    { "movn",       3, SPECIAL, {RD, RS, RT},      {}, 0x0b},
+    { "syscall",    0, SPECIAL, {},                {}, 0x0c},
+    { "break",      0, SPECIAL, {},                {}, 0x0d},
+    { "mfhi",       1, SPECIAL, {RD},              {}, 0x10},
+    { "mthi",       1, SPECIAL, {RS},              {}, 0x11},
+    { "mflo",       1, SPECIAL, {RT},              {}, 0x12},
+    { "mtlo",       1, SPECIAL, {RS},              {}, 0x13},
+    { "mult",       2, SPECIAL, {RS, RT},          {}, 0x18},
+    { "multu",      2, SPECIAL, {RS, RT},          {}, 0x19},
+    { "div",        2, SPECIAL, {RS, RT},          {}, 0x1a},
+    { "divu",       2, SPECIAL, {RS, RT},          {}, 0x1b},
+    { "add",        3, SPECIAL, {RD, RS, RT},      {}, 0x20},
+    { "addu",       3, SPECIAL, {RD, RS, RT},      {}, 0x21},
+    { "sub",        3, SPECIAL, {RD, RS, RT},      {}, 0x22},
+    { "subu",       3, SPECIAL, {RD, RS, RT},      {}, 0x23},
+    { "and",        3, SPECIAL, {RD, RS, RT},      {}, 0x24},
+    { "or",         3, SPECIAL, {RD, RS, RT},      {}, 0x25},
+    { "xor",        3, SPECIAL, {RD, RS, RT},      {}, 0x26},
+    { "nor",        3, SPECIAL, {RD, RS, RT},      {}, 0x27},
+    { "slt",        3, SPECIAL, {RD, RS, RT},      {}, 0x2a},
+    { "sltu",       3, SPECIAL, {RD, RS, RT},      {}, 0x2b},
+    { "tge",        2, SPECIAL, {RS, RT},          {}, 0x30},
+    { "tgeu",       2, SPECIAL, {RS, RT},          {}, 0x31},
+    { "tlt",        2, SPECIAL, {RS, RT},          {}, 0x32},
+    { "tltu",       2, SPECIAL, {RS, RT},          {}, 0x33},
+    { "teq",        2, SPECIAL, {RS, RT},          {}, 0x34},
+    { "tne",        2, SPECIAL, {RS, RT},          {}, 0x36},
 
-    // COP0 ENCODING
-    {"eret",        0x10, 0x18, C0,     R, {-1,-1,-1}   },
-    {"wait",        0x10, 0x20, C0,     R, {-1,-1,-1}   },
-    {"tlbr",        0x10, 0x01, C0,     R, {-1,-1,-1}   },
-    {"tlbwi",       0x10, 0x02, C0,     R, {-1,-1,-1}   },
-    {"tlbp",        0x10, 0x08, C0,     R, {-1,-1,-1}   },
-    {"mfc0",        0x10, 0x00, 00,     R, {1,2,-1}     },
-    {"mtc0",        0x10, 0x00, 0b100,  R, {1,2,-1}     },
-    {"ei",          0x10, 0x20, 0xb,    R, {1,-1,-1}    },  // REQUIRES SPECIAL VALUE IN RD
-    {"di",          0x10, 0x00, 0xb,    R, {1,-1,-1}    },  // REQUIRES SPECIAL VALUE IN RD
+    // COP0 encoding
+    {"eret",    0, COP0, {},       {{RS, C0}}, 0x18},
+    {"wait",    0, COP0, {},       {{RS, C0}}, 0x20},
+    {"mfc0",    2, COP0, {RT, RD}, {}, 0x00},
+    {"mfc0",    3, COP0, {RT, RD, SEL}, {}, 0x00},
+    {"mtc0",    2, COP0, {RT, RD}, {{RS, 0b100}}, 0x00},
+    {"mtc0",    3, COP0, {RT, RD, SEL}, {{RS, 0b100}}, 0x00},
+    {"ei",      0, COP0, {},       {{RS, MFMC0}, {RD, 0b01100}}, 0b100000},
+    {"ei",      1, COP0, {RT},     {{RS, MFMC0}, {RD, 0b01100}}, 0b100000},
+    {"di",      0, COP0, {},       {{RS, MFMC0}}, 0b100000},
+    {"di",      1, COP0, {RT},     {{RS, MFMC0}}, 0b100000},
+
 };
 
 // Allocate memory and initialize hash table
@@ -147,19 +154,23 @@ int it_insert(InstructionTable * table, const InstrDesc desc) {
 }
 
 // Returns a pointer to the instruction description for the given mnemonic
-InstrDesc *it_lookup(const InstructionTable *table, const char *mnemonic) {
+InstrDesc *it_lookup(const InstructionTable *table, const char *mnemonic, const int argc) {
     unsigned long index = hash_key(mnemonic, INSTRUCTION_TABLE_SIZE);
     // Compare with mnemonic at index, increment until we find it
     if (!table->buckets[index].inUse) {
         raise_error(TOKEN_ERR, mnemonic, __FILE__);
         return NULL;
     }
+
     int indices_searched = 0;
-    while (strcmp(mnemonic, table->buckets[index].item.mnemonic) != 0) {
+
+    // Check mnemonic AND argc
+    while (strcmp(mnemonic, table->buckets[index].item.mnemonic) != 0 || table->buckets[index].item.argc != argc) {
         index = (index + 1) % INSTRUCTION_TABLE_SIZE;
         indices_searched++;
         if (indices_searched >= INSTRUCTION_TABLE_SIZE) {
             raise_error(TOKEN_ERR, mnemonic, __FILE__);
+            error_context("could not find corresponding instruction");
             return NULL;
         }
         if (!table->buckets[index].inUse) {
@@ -176,297 +187,225 @@ void it_destroy(const InstructionTable *table) {
     free(table->buckets);
 }
 
-// A convoluted function: expects as `in` a list of register numbers, and `order` the positions these correspond to.
-// See instructions.h for the order.
-// Writes the registers in the correct order to the buffer `out`.
-int get_registers(unsigned int *out, const unsigned char *in, const int *order) {
-    out[0] = 0;
-    out[1] = 0;
-    out[2] = 0;
-    for (int i = 0; i < 3; i++) {
-        const int o = order[i]; // which slot (rs 0, rt 1, rd 2)?
-        const int r = in[i]; // which register (0-31)?
+uint32_t convert_instruction(Instruction instruction, InstructionTable *instruction_table, RelocationTable *reloc_table, uint32_t current_addr, Segment current_segment) {
+    // Find description
+    const InstrDesc *desc = it_lookup(instruction_table, instruction.mnemonic, instruction.argc);
+    if (desc == NULL) return -1;
 
-        if (o == -1) { // If slot not used
-            if (r == 255) continue; // And no register given, skip
-            return 0;
-        }
-        if (r == 255) return 0; // No register given but slot used
+    uint32_t final = 0;
 
-        out[o] = r;
-    }
-    return 1;
-}
+    // Fill in opcode, funct (if not -1)
+    final |= (desc->opcode << 26);
+    if (desc->funct != -1) final |= (desc->funct & 0b111111);
 
-uint32_t convert_rtype(Instruction instruction, const InstrDesc *desc) {
-    if (desc->format != R) {
-        raise_error(NOERR, NULL, __FILE__);
-        return -1;
-    }
+    // For each arg, fill in
+    for (int i = 0; i < instruction.argc; i++) {
+        Argument userarg = instruction.args[i];
+        ArgPosition position = desc->args[i];
 
-    // Get fields
-    unsigned int opcode = desc->opcode;
-
-    // Get registers
-    unsigned int regs[3] = {0,0,0};
-    if (get_registers(regs, instruction.registers, desc->register_order) == 0) {
-        raise_error(ARGS_INV, NULL, __FILE__);
-        return -1;
-    }
-
-    const unsigned int funct = desc->funct;
-
-    // Save the immediate field in shamt
-    unsigned int shamt = 0;
-    if (instruction.imm.type == NUM) {
-
-        // The immediate is usually shamt. The special cases are the trap and break instructions
-        // which have different encodings.
-
-        if ((funct >= 0x30 && funct <= 0x34) || funct == 0x36) { // Trap instruction
-            if (instruction.imm.intValue > 511 || instruction.imm.intValue < -512) { // should fit in 10 bits
-                raise_error(ARGS_INV, NULL, __FILE__);
-                return -1;
-            }
-            opcode <<= 26;
-            regs[0] <<= 21;
-            regs[1] <<= 16;
-            instruction.imm.intValue <<= 6;
-            return opcode | regs[0] | regs[1] | instruction.imm.intValue | funct;
-        }
-
-        if (funct == 0x0d) { // BREAK instruction
-            if (instruction.imm.intValue > 524287 || instruction.imm.intValue < -524288) { // should fit in 20 bits
-                raise_error(ARGS_INV, NULL, __FILE__);
-                return -1;
-            }
-            opcode <<= 26;
-            instruction.imm.intValue <<= 6;
-            return opcode | instruction.imm.intValue | funct;
-        }
-
-        /* From the documentation regarding shamt:
-            "   If src2 (or the immediate value) is greater than
-                31 or less than 0, src1 shifts by src2 MOD 32.  "
-        Note this allows the user to provide a 32-bit signed immediate
-         */
-        shamt = (instruction.imm.intValue % 32 + 32) % 32;
-    } else if (instruction.imm.type != NONE) {
-        raise_error(ARGS_INV, NULL, __FILE__);
-        return -1;
-    }
-
-    // Ensure range
-    if (regs[0] > MAX_5U || regs[1] > MAX_5U || regs[2] > MAX_5U || shamt > MAX_5U || funct > MAX_6U) {
-        raise_error(ARGS_INV, NULL, __FILE__);
-        return -1;
-    }
-
-    // Fill the rs field for the instructions that use them in their encoding (namely C0 instructions)
-    if (desc->rs != 0) {
-        regs[0] = desc->rs;
-    }
-
-    // special RD value for EI and DI
-    if (desc->opcode == 0x10 && desc->rs == 0xb) regs[2] = 12;
-
-    // Shift each field into position
-    opcode  <<= 26;
-    regs[0] <<= 21; // rs
-    regs[1] <<= 16; // rt
-    regs[2] <<= 11; // rd
-    shamt   <<=  6;
-    return opcode | regs[0] | regs[1] | regs[2] | shamt | funct;
-}
-
-uint32_t convert_itype(const Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, const uint32_t current_offset, const Segment current_segment) {
-    if (desc->format != I) {
-        raise_error(NOERR, NULL, __FILE__);
-        return -1;
-    }
-
-    int opcode = desc->opcode;
-
-    /* I-type instructions are conveniently organized:
-
-     * conditional branches: opcodes 0x4 - 0x7
-     * traditional operations (i.e. rt = f(rs)): opcodes 0x8 - 0xF
-     * memory instructions: opcodes 0x20 - 0x30
-     The immediates for these instructions are handled differently.
-    */
-
-    unsigned int regs[3] = {0,0,0};
-    if (get_registers(regs, instruction.registers, desc->register_order) == 0) {
-        raise_error(ARGS_INV, NULL, __FILE__);
-        return -1;
-    }
-    if (regs[2] != 0) { // Three registers given to I-type instruction
-        raise_error(ARGS_INV, NULL, __FILE__);
-        return -1;
-    }
-
-    // Get immediate
-    uint32_t imm = 0;
-    if (opcode >= 0x4 && opcode <= 0x7) { // Conditional branch
-        if (instruction.imm.type != SYMBOL) {
-            raise_error(ARGS_INV, NULL, __FILE__);
-            return -1;
-        }
-
-        if (instruction.imm.modifier != 0) {
-            raise_error(ARGS_INV, NULL, __FILE__);
-            return -1;
-        }
-
-        Symbol *s = instruction.imm.symbol;
-        if (s == NULL) return -1;
+        Symbol *s;
         RelocationEntry reloc;
-        try(re_init(&reloc, s->index, current_offset, current_segment, R_PC16), -1);
-        rt_add(reloc_table, reloc);
 
-        imm = 0;
-    }
-    else if (opcode >= 0x8 && opcode <= 0xf) { // Traditional operation
-        // Get numerical immediate
-        if (instruction.imm.type != SYMBOL && instruction.imm.type != NUM) {
-            raise_error(ARGS_INV, NULL, __FILE__);
-            return -1;
+        if (position == NOARG) {
+            // Too many arguments were given (this shouldn't happen because we compare argcs)
+            goto bad;
         }
 
-        // hi and lo bits of a symbol
-        if (instruction.imm.type == SYMBOL) {
-            Symbol *s = instruction.imm.symbol;
-            if (s == NULL) return -1;
-            RelocationEntry reloc;
-            imm = 0;
+        // Argument should be register
+        if (position >= RS && position <= RD) {
+            if (userarg.type != REGISTER) goto bad;
+            unsigned char reg = userarg.reg;
+            reg &= 0b11111;
 
-            switch (instruction.imm.modifier) {
-                case 1: // R_HI16
-                    try(re_init(&reloc, s->index, current_offset, current_segment, R_HI16), -1);
+            // Place user value into position
+            switch (position) {
+                case RS:
+                    final |= (reg << 21);
                     break;
-                case 2: // R_LO16
-                    try(re_init(&reloc, s->index, current_offset, current_segment, R_LO16), -1);
+                case RT:
+                    final |= (reg << 16);
                     break;
-                default:
-                    raise_error(ARGS_INV, NULL, __FILE__);
-                    return -1;
-            }
-            rt_add(reloc_table, reloc);
-        }
-        else {
-            // imm = instruction.imm.intValue;
-            switch (instruction.imm.modifier) {
-                case 0:
-                    imm = instruction.imm.intValue;
-                    break;
-                case 1:
-                    imm = instruction.imm.intValue >> 16;
-                    break;
-                case 2:
-                    imm = instruction.imm.intValue & 0xFFFF;
+                case RD:
+                    final |= (reg << 11);
                     break;
                 default:
-                    raise_error(ARGS_INV, NULL, __FILE__);
-                    return -1;
+                    goto bad;
             }
         }
 
-        /* NOTE:
-        This allows any immediate value that fits within 16 bits. That is, -32768 to 65535. Different
-        instructions have different sign conventions, and this assembler does not check the convention for each
-        instruction. This means, for example, the user could input a very small negative number that would get
-        interpreted as a very large positive number by the processor.
-        */
+        // Argument should be immediate
+        else if (position >= SHAMT) {
+            if (userarg.type != IMMEDIATE) goto bad;
+            Immediate imm = userarg.imm;
+            uint32_t v;
 
-        // Make sure immediate fits in 16-bits; checks if the upper 17-bits are all 1 or if the upper 16 are all 0
-        if ((imm & 0xFFFF8000) != 0xFFFF8000 && (imm & 0xFFFF0000) != 0x00000000) {
-            raise_error(ARGS_INV, NULL, __FILE__);
-            return -1;
-        }
+            switch (position) {
+                case SHAMT:
+                    if (imm.type != NUM) goto bad;
+                    /* From the documentation regarding shamt:
+                        "   If src2 (or the immediate value) is greater than
+                            31 or less than 0, src1 shifts by src2 MOD 32.  "
+                    Note this allows the user to provide a 32-bit signed immediate
+                     */
+                    v = (imm.intValue % 32 + 32) % 32;
+                    final |= (v << 6);
+                    break;
+                case JADDR:
+                    if (imm.type != SYMBOL) goto bad;
 
-        // Cast to 16 bits
-        const int16_t signed_immediate = (int16_t) imm;
+                    /* J-type instuctions use pseudo-direct addresses
+                    Given a symbol, take the middle 26-bits, dropping the 4 MSBs and 2 LSBs
+                    The processor later converts this to an address using the 4 MSBs of the PC
+                    The 4 MSBs of the PC must be equal to those of the address
+                    */
 
-        // Convert to unsigned 32-bits
-        imm = (uint32_t) signed_immediate & 0x0000FFFF;
-    }
-    else if (opcode >= 0x20 && opcode <= 0x2e) { // Memory instruction
-        // Get rs and immediate from instruction.immediate
-        // Address is in the form imm(rs) or (rs), i.e., 0x542($t2). If no number given, 0 is used
+                    // J-type instructions require R_26 relocation
+                    s = imm.symbol;
+                    if (s == NULL) goto bad;
+                    try(re_init(&reloc, s->index, current_addr, current_segment, R_26), -1);
+                    rt_add(reloc_table, reloc);
 
-        if (instruction.imm.type != REG_OFFSET) {
-            raise_error(ARGS_INV, NULL, __FILE__);
-            return -1;
-        }
+                    break;
+                case PC16:
+                    if (imm.type != SYMBOL || imm.modifier != 0) goto bad;
 
-        regs[0] = instruction.imm.rgstr;
-        switch (instruction.imm.modifier) {
-            case 0:
-                // numerical value
-                if (instruction.imm.intValue > UINT16_MAX || instruction.imm.intValue < INT16_MIN) {
-                    raise_error(ARGS_INV, NULL, __FILE__);
+                    s = imm.symbol;
+                    if (s == NULL) goto bad;
+                    try(re_init(&reloc, s->index, current_addr, current_segment, R_PC16), -1);
+                    rt_add(reloc_table, reloc);
+
+                    break;
+                case IMM16:
+                    if (imm.type != SYMBOL && imm.type != NUM) goto bad;
+
+                    if (imm.type == SYMBOL) {
+                        s = imm.symbol;
+                        if (s == NULL) goto bad;
+                        switch (imm.modifier) {
+                            case 1: // R_HI16
+                                try(re_init(&reloc, s->index, current_addr, current_segment, R_HI16), -1);
+                                break;
+                            case 2: // R_LO16
+                                try(re_init(&reloc, s->index, current_addr, current_segment, R_LO16), -1);
+                                break;
+                            default:
+                                goto bad;
+                        }
+                        rt_add(reloc_table, reloc);
+                    }
+
+                    /* NOTE:
+                    This allows any immediate value that fits within 16 bits. That is, -32768 to 65535. Different
+                    instructions have different sign conventions, and this assembler does not check the convention for each
+                    instruction. This means, for example, the user could input a very small negative number that would get
+                    interpreted as a very large positive number by the processor.
+                    */
+
+                    else {
+                        // imm = instruction.imm.intValue;
+                        switch (imm.modifier) {
+                            case 0:
+                                v = imm.intValue;
+                                break;
+                            case 1:
+                                v = imm.intValue >> 16;
+                                break;
+                            case 2:
+                                v = imm.intValue & 0xFFFF;
+                                break;
+                            default:
+                                raise_error(ARGS_INV, NULL, __FILE__);
+                                return -1;
+                        }
+
+                        // Make sure immediate fits in 16-bits; checks if the upper 17-bits are all 1 or if the upper 16 are all 0
+                        if ((v & 0xFFFF8000) != 0xFFFF8000 && (v & 0xFFFF0000) != 0x00000000) goto bad;
+                        int16_t signed_v = (int16_t) v;
+                        v = (uint32_t) signed_v & 0xFFFF;
+                        final |= v;
+                    }
+
+                    break;
+                case REGOFF:
+                    if (imm.type != REG_OFFSET) goto bad;
+
+                    // Set RS to register value
+                    final |= (imm.rgstr << 21);
+
+                    switch (imm.modifier) {
+                        case 0:
+                            // Numerical value
+                            if (imm.intValue > UINT16_MAX || imm.intValue < INT16_MIN) goto bad;
+                            final |= (imm.intValue & 0xFFFF);
+                            break;
+                        case 1: // hi symbol
+                        case 2: // lo symbol
+                            s = imm.symbol;
+                            if (s == NULL) goto bad;
+                            if (imm.modifier == 1) {
+                                try(re_init(&reloc, s->index, current_addr, current_segment, R_HI16), -1);
+                            }
+                            else if (imm.modifier == 2) {
+                                try(re_init(&reloc, s->index, current_addr, current_segment, R_LO16), -1);
+                            } else goto bad;
+                            rt_add(reloc_table, reloc);
+                            break;
+                        default:
+                            goto bad;
+                    }
+
+                    break;
+                case SEL:
+                    if (imm.type != NUM) goto bad;
+                    if ((imm.intValue & 0b111) != imm.intValue) goto bad;
+                    final |= imm.intValue;
+
+                    break;
+                default:
                     return -1;
-                }
-                imm = instruction.imm.intValue & 0x0000FFFF;
-                break;
-            case 1: // hi symbol
-            case 2: // lo symbol
-                imm = 0;
-                RelocationEntry reloc;
-                Symbol *s = instruction.imm.symbol;
-                if (s == NULL) return -1;
-                if (instruction.imm.modifier == 1) {
-                    try(re_init(&reloc, s->index, current_offset, current_segment, R_HI16), -1);
-                }
-                else if (instruction.imm.modifier == 2) {
-                    try(re_init(&reloc, s->index, current_offset, current_segment, R_LO16), -1);
-                }
-                else {
-                    raise_error(ARGS_INV, NULL, __FILE__);
-                    return -1;
-                }
-                rt_add(reloc_table, reloc);
-                break;
-            default:
-                raise_error(ARGS_INV, NULL, __FILE__);
-                return -1;
+            }
         }
     }
 
-    // Shift each field into position
-    opcode  <<= 26;
-    regs[0] <<= 21;
-    regs[1] <<= 16;
-    return opcode | regs[0] | regs[1] | imm;
-}
-
-uint32_t convert_jtype(const Instruction instruction, RelocationTable *reloc_table, const InstrDesc *desc, const uint32_t current_offset, const Segment current_segment) {
-    if (desc->format != J) {
-        raise_error(NOERR, NULL, __FILE__);
-        return -1;
+    // Fill in defaults
+    int i = 0;
+    while (desc->defaults[i].position != NOARG) {
+        const ArgValue arg = desc->defaults[i];
+        uint32_t v = (uint32_t) arg.value;
+        switch (arg.position) {
+            case RS:
+                v &= 0b11111;
+                final |= (v << 21);
+                break;
+            case RT:
+                v &= 0b11111;
+                final |= (v << 16);
+                break;
+            case RD:
+                v &= 0b11111;
+                final |= (v << 11);
+                break;
+            case SHAMT:
+                v &= 0b11111;
+                final |= (v << 6);
+                break;
+            case JADDR:
+                v &= 0x3FFFFFF;
+                final |= v;
+                break;
+            case IMM16:
+            case PC16:
+                v &= 0xFFFF;
+                final |= v;
+                break;
+            default: goto bad;
+        }
+        i++;
     }
 
-    int opcode = desc->opcode;
+    return final;
 
-    /* J-type instuctions use pseudo-direct addresses
-    Given a symbol, take the middle 26-bits, dropping the 4 MSBs and 2 LSBs
-    The processor later converts this to an address using the 4 MSBs of the PC
-    The 4 MSBs of the PC must be equal to those of the address
-    */
-
-    if (instruction.imm.type != SYMBOL) {
-        raise_error(ARGS_INV, NULL, __FILE__);
-        return -1;
-    }
-
-    // J-type instructions require R_26 relocation
-    Symbol *s = instruction.imm.symbol;
-    if (s == NULL) return -1;
-    RelocationEntry reloc;
-    try(re_init(&reloc, s->index, current_offset, current_segment, R_26), -1);
-    rt_add(reloc_table, reloc);
-
-    opcode <<= 26;
-    return opcode;
-
+    bad:
+    raise_error(ARGS_INV, NULL, __FILE__);
+    return -1;
 }

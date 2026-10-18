@@ -35,17 +35,12 @@ Segment CURRENT_SEGMENT = TEXT;         // Keeps track of current segment being 
 int parse_instruction(const Assembler *assembler, Line *line, Instruction *instruction) {
     const char *line_text = line_get_str(line);
     if (line_text == NULL) return 0;
-    memset(instruction->mnemonic, '\0', sizeof(instruction->mnemonic));
-
-    const Immediate imm = {NONE, .intValue=0, .modifier=0};
-    instruction->imm = imm;
+    memset(instruction, 0, sizeof(Instruction));
 
     char line_buf[strlen(line_text) + 1]; // Tokenize a copy so we preserve original string
     strcpy(line_buf, line_text);
 
     char *token = tokenize(line_buf, ' ');
-    int argc = 0;
-    unsigned char args[3];
     unsigned char readMnemonic = 0; // Whether the mnemonic has been read. Set to true when the assembler finds the first token not ending in ':'
     char *cur;
 
@@ -105,8 +100,10 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
 
         // Process arguments
         else {
-            if (argc >= 3) {
-                raise_error(ARG_INV, token, __FILE__);
+            Argument arg = {0};
+
+            if (instruction->argc >= ARGCOUNT) {
+                raise_error(ARGS_INV, NULL, __FILE__);
                 return 0;
             }
 
@@ -119,8 +116,9 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
                     goto is_imm;
                 }
 
-                args[argc] = r;
-                argc++;
+                arg.type = REGISTER;
+                arg.reg = r;
+                instruction->args[instruction->argc++] = arg;
             }
 
             // If argument doesn't start with $, assume immediate
@@ -137,8 +135,11 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
                         return 0;
                     }
                 }
-                instruction->imm = parse_imm(cur, assembler->symbol_table, 1);
-                if (instruction->imm.modifier == 255) {
+
+                arg.type = IMMEDIATE;
+
+                arg.imm = parse_imm(cur, assembler->symbol_table, 1);
+                if (arg.imm.modifier == 255) {
                     return 0;
                 }
                 token = tokenize(NULL, ' ');
@@ -146,6 +147,8 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
                     raise_error(ARG_INV, token, __FILE__);
                     return 0;
                 }
+
+                instruction->args[instruction->argc++] = arg;
 
                 break;
             }
@@ -155,16 +158,6 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
     }
 
     string_destroy(&label);
-
-    // Add registers
-    int i;
-    for (i = 0; i < argc; i++) { // Add registers to list
-        instruction->registers[i] = args[i];
-    }
-    while (i < 3) { // Fill remaining spaces with 255
-        instruction->registers[i] = 255;
-        i++;
-    }
 
     return 1;
 }
@@ -453,25 +446,6 @@ int read_data(const Assembler *assembler, const Line *line) {
 
 /* === SECOND PASS TEXT SEGMENT === */
 
-// Returns the 32-bit machine code representation of the Instruction, or -1 on failure.
-uint32_t convert_instruction(const Instruction instruction, const Assembler* assembler, const uint32_t current_addr) {
-    // Get function description
-    const InstrDesc *instruction_desc = it_lookup(assembler->instruction_table, instruction.mnemonic);
-    if (instruction_desc == NULL) return -1;
-
-    switch (instruction_desc->format) {
-        case R:
-            return convert_rtype(instruction, instruction_desc);
-        case I:
-            return convert_itype(instruction, assembler->relocation_table, instruction_desc, current_addr, CURRENT_SEGMENT);
-        case J:
-            return convert_jtype(instruction, assembler->relocation_table, instruction_desc, current_addr, CURRENT_SEGMENT);
-        default:
-            raise_error(NOERR, NULL, __FILE__);
-            return -1;
-    }
-}
-
 // Goes through every instruction and writes its 32-bit machine code to the file. Returns 0 on failure
 int write_instruction_list(FILE *file, const Assembler *assembler) {
     uint32_t current_addr = 0;
@@ -489,7 +463,8 @@ int write_instruction_list(FILE *file, const Assembler *assembler) {
         ERROR_HANDLER.line = instruction.line;
 
         // Convert to machine code
-        const uint32_t machine_code = convert_instruction(instruction, assembler, current_addr);
+        // const uint32_t machine_code = convert_instruction(instruction, assembler, current_addr);
+        const uint32_t machine_code = convert_instruction(instruction, assembler->instruction_table, assembler->relocation_table, current_addr, CURRENT_SEGMENT);
         if (machine_code == (uint32_t) -1) {
             return 0;
         }
@@ -678,7 +653,7 @@ int handle_comm(Assembler *assembler, Line *line) {
 /* === MAIN === */
 
 // Parses the output of the preprocessor into the symbol table, instruction list, and data list.
-int assembler_first_pass(Assembler *assembler) {
+int assembler_first_pass(const Assembler *assembler) {
 
     // Loop through each individual line in the file
     Line *line = assembler->preprocessed->head;
@@ -1078,19 +1053,19 @@ void assembler_debug(const Assembler *assembler) {
         printf("No kernel data found\n");
     }
 
-    if (assembler->instruction_list != NULL) {
-        printf("User text:\n");
-        il_debug(assembler->instruction_list);
-    } else {
-        printf("No instruction list found\n");
-    }
-
-    if (assembler->kernel_text != NULL) {
-        printf("Kernel text:\n");
-        il_debug(assembler->kernel_text);
-    } else {
-        printf("No kernel text found\n");
-    }
+    // if (assembler->instruction_list != NULL) {
+    //     printf("User text:\n");
+    //     il_debug(assembler->instruction_list);
+    // } else {
+    //     printf("No instruction list found\n");
+    // }
+    //
+    // if (assembler->kernel_text != NULL) {
+    //     printf("Kernel text:\n");
+    //     il_debug(assembler->kernel_text);
+    // } else {
+    //     printf("No kernel text found\n");
+    // }
 
     if (assembler->relocation_table != NULL) {
         rt_debug(assembler->relocation_table, assembler->symbol_table);

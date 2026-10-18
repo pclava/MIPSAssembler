@@ -43,20 +43,20 @@ void il_destroy(const InstructionList *instruction_list) {
     free(instruction_list->list);
 }
 
-void il_debug(const InstructionList *instruction_list) {
-    for (size_t i = 0; i < instruction_list->len; i++) {
-        instruction_debug(instruction_list->list[i]);
-    }
-}
-
-void instruction_debug(const Instruction instruction) {
-    printf("instruction: %s (%d, %d, %d)", instruction.mnemonic, instruction.registers[0], instruction.registers[1], instruction.registers[2]);
-    if (instruction.imm.type == NUM) {
-        printf(" imm: 0x%x\n", instruction.imm.intValue);
-    } else if (instruction.imm.type == SYMBOL) {
-        printf(" imm: symbol 0x%.2x\n", instruction.imm.symbol->offset);
-    }
-    else {
-        printf("\n");
-    }
-}
+// void il_debug(const InstructionList *instruction_list) {
+//     for (size_t i = 0; i < instruction_list->len; i++) {
+//         instruction_debug(instruction_list->list[i]);
+//     }
+// }
+//
+// void instruction_debug(const Instruction instruction) {
+//     printf("instruction: %s (%d, %d, %d)", instruction.mnemonic, instruction.registers[0], instruction.registers[1], instruction.registers[2]);
+//     if (instruction.imm.type == NUM) {
+//         printf(" imm: 0x%x\n", instruction.imm.intValue);
+//     } else if (instruction.imm.type == SYMBOL) {
+//         printf(" imm: symbol 0x%.2x\n", instruction.imm.symbol->offset);
+//     }
+//     else {
+//         printf("\n");
+//     }
+// }

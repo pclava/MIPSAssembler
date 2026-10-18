@@ -135,6 +135,26 @@ struct Immediate {
     unsigned char modifier; // 0 = none, 1 = hi, 2 = lo, 254 = macro argument, 255 = failure to parse
 };
 
+
+#define ARGCOUNT 8
+
+typedef enum ArgumentType ArgumentType;
+typedef struct Argument Argument;
+
+enum ArgumentType {
+    UNUSED,
+    REGISTER,
+    IMMEDIATE
+};
+
+struct Argument {
+    ArgumentType type;
+    union {
+        unsigned char reg;
+        Immediate imm;
+    };
+};
+
 // Parses the string into an Immediate structure. read_escape is whether the function should resolve escape sequences
 Immediate parse_imm(const char *str, SymbolTable *symbol_table, int read_escape);
 
