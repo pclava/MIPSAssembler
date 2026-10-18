@@ -44,129 +44,8 @@
     addiu   $v0, %tmp, 0
 .end_macro
 
-# TODO: implement in assembler
 .macro negu %rd, %rs
     subu    %rd, $0, %rs
-.end_macro
-
-# TODO: implement in assembler
-.macro mul %rd, %rs, %rt
-    mult    %rs, %rt
-    mflo    %rd
-.end_macro
-
-# TODO: implement in assembler
-.macro seb %rd, %rt
-    addiu   $sp, $sp, -4
-    sw      $at, 0($sp)
-
-    sll     $at, %rt, 24
-    sra     %rd, $at, 24
-
-    lw      $at, 0($sp)
-    addiu   $sp, $sp, 4
-.end_macro
-
-# TODO: implement in assembler
-.macro ext %rt %rs %pos %size
-
-    addiu   $sp, $sp, -8
-    sw      $t0, 0($sp)     # Save $t0
-    sw      $at, 4($sp)     # Save $at
-
-    # Calculate 32-size
-    addiu   $at, $0, 32     # Get 32
-    addiu   $t0, $0, %size  # Get size
-    subu    $t0, $at, $t0   # 32-size
-
-    # Create mask of 1s
-    addiu   $at, $0, -1     # All 1s
-    srlv    $at, $at, $t0   # Shift mask by 32-size
-
-    # Mask with rs
-    srl     $t0, %rs, %pos  # Shift rs right by pos
-    and     $t0, $t0, $at   # AND with mask
-
-    # Create hole in rt
-    nor     $at, $at, $0    # Invert mask
-    and     %rt, %rt, $at   # Clear bits in rt
-
-    # Merge
-    or      %rt, %rt, $t0   # OR bits saved in rs with masked rt
-
-    lw      $at, 4($sp)     # Load $at
-    lw      $t0, 0($sp)     # Load $t0
-    addiu   $sp, $sp, 8
-
-.end_macro
-
-# TODO: implement in assembler
-.macro ins %rt %rs %pos %size
-
-    addiu   $sp, $sp, -8
-    sw      $t0, 0($sp)     # Save $t0
-    sw      $at, 4($sp)     # Save $at
-
-    # Calculate 32-size
-    addiu   $at, $0, 32     # Get 32
-    addiu   $t0, $0, %size  # Get size
-    subu    $t0, $at, $t0   # 32-size
-
-    # Create mask of 1s
-    addiu   $at, $0, -1     # All 1s
-    srlv    $at, $at, $t0   # Shift mask by 32-size
-
-    # Isolate bits in %rs and move to position
-    and     $t0, $at, %rs   # Isolate bits
-    sll     $t0, $t0, %pos  # Shift to position
-
-    # Create hole in %rt
-    sll     $at, $at, %pos  # Shift mask
-    nor     $at, $at, $0    # Invert (turn 0001111000 -> 1110000111)
-    and     %rt, %rt, $at   # Clear bits in rt
-
-    # Merge
-    or      %rt, %rt, $t0   # OR the cleared $rt with mask created in $t0
-
-    lw      $at, 4($sp)     # Load $at
-    lw      $t0, 0($sp)     # Load $t0
-    addiu   $sp, $sp, 8
-
-.end_macro
-
-# TODO: implement in assembler
-.macro ins %rt %rs %pos %size
-
-    # Isolate target bits of rs and shift to correct position
-    # Clear target bits in rt
-    # Merge
-
-    addiu   $sp, $sp, -4
-    sw      $t0, 0($sp)     # Save $t0
-
-    # Calculate 32-size
-    addiu   $at, $0, 32     # Get 32
-    addiu   $t0, $0, %size  # Get size
-    subu    $t0, $at, $t0   # 32-size
-
-    # Create mask of 1s
-    addiu   $at, $0, -1     # All 1s
-    srlv    $at, $at, $t0   # Shift mask by 32-size
-
-    # Isolate bits in %rs and move to position
-    and     $t0, $at, %rs   # Isolate bits
-    sll     $t0, $t0, %pos  # Shift to position
-
-    # Create hole in %rt
-    sll     $at, $at, %pos  # Shift mask
-    nor     $at, $at, $0    # Invert (turn 0001111000 -> 1110000111)
-    and     %rt, %rt, $at   # Clear bits in rt
-
-    # Merge
-    or      %rt, %rt, $t0   # OR the cleared $rt with mask created in $t0
-
-    lw      $t0, 0($sp)     # Load $t0
-    addiu   $sp, $sp, 4
 .end_macro
 
 # Push to stack
@@ -229,16 +108,6 @@
 # Branch on not zero
 .macro bnez %r %lbl
     bne %r, $0, %lbl
-.end_macro
-
-# Branch greater than or equal to zero
-.macro bgez %r %lbl
-    bge %r, $0, %lbl
-.end_macro
-
-# Branch on less than zero
-.macro bltz %r %lbl
-    blt %r, $0, %lbl
 .end_macro
 
 # Load address

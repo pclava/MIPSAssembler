@@ -566,7 +566,7 @@ int write_data_list(FILE *file, Assembler *assembler) {
 // handles the comm directive
 // should be of the form: .comm symbol length [alignment]
 // where symbol is a new symbol *declaration*
-int handle_comm(Assembler *assembler, Line *line) {
+int handle_comm(const Assembler *assembler, Line *line) {
     char *text = line_get_str(line);
     if (text == NULL) return 0;
     char line_buffer[strlen(text)+1];

@@ -10,12 +10,15 @@ This handles the representation of the MIPS instruction set
 as well as converting the intermediate representation Instruction structures to machine code
 */
 
-#define COP0 0x10       // opcode for coprocessor 0 instructions
-#define C0 0b10000      // RS field for some COP0 instructions
-#define SPECIAL 0x00    // opcode for most r-type instructions
+#define COP0 0x10           // opcode for coprocessor 0 instructions
+#define SPECIAL 0x00        // opcode for most r-type instructions
+#define REGIMM 0x01         // opcode
+#define SPECIAL2 0b011100   // opcode
+#define SPECIAL3 0b011111   // opcode
+#define C0 0b10000          // RS field for some COP0 instructions
 #define MFMC0 0b01011
 
-#define INSTRUCTION_COUNT 74
+#define INSTRUCTION_COUNT 84
 #define INSTRUCTION_TABLE_SIZE 256 // SHOULD BE DECENTLY LARGER THAN INSTRUCTION COUNT
 
 static const InstrDesc instr_table[INSTRUCTION_COUNT] = {
@@ -90,16 +93,32 @@ static const InstrDesc instr_table[INSTRUCTION_COUNT] = {
     { "tne",        2, SPECIAL, {RS, RT},          {}, 0x36},
 
     // COP0 encoding
-    {"eret",    0, COP0, {},       {{RS, C0}}, 0x18},
-    {"wait",    0, COP0, {},       {{RS, C0}}, 0x20},
-    {"mfc0",    2, COP0, {RT, RD}, {}, 0x00},
-    {"mfc0",    3, COP0, {RT, RD, SEL}, {}, 0x00},
-    {"mtc0",    2, COP0, {RT, RD}, {{RS, 0b100}}, 0x00},
-    {"mtc0",    3, COP0, {RT, RD, SEL}, {{RS, 0b100}}, 0x00},
-    {"ei",      0, COP0, {},       {{RS, MFMC0}, {RD, 0b01100}}, 0b100000},
-    {"ei",      1, COP0, {RT},     {{RS, MFMC0}, {RD, 0b01100}}, 0b100000},
-    {"di",      0, COP0, {},       {{RS, MFMC0}}, 0b100000},
-    {"di",      1, COP0, {RT},     {{RS, MFMC0}}, 0b100000},
+    {"eret",    0, COP0, {},                {{RS, C0}}, 0x18},
+    {"wait",    0, COP0, {},                {{RS, C0}}, 0x20},
+    {"mfc0",    2, COP0, {RT, RD},          {}, 0x00},
+    {"mfc0",    3, COP0, {RT, RD, SEL},     {}, 0x00},
+    {"mtc0",    2, COP0, {RT, RD},          {{RS, 0b100}}, 0x00},
+    {"mtc0",    3, COP0, {RT, RD, SEL},     {{RS, 0b100}}, 0x00},
+    {"ei",      0, COP0, {},                {{RS, MFMC0}, {RD, 0b01100}}, 0b100000},
+    {"ei",      1, COP0, {RT},              {{RS, MFMC0}, {RD, 0b01100}}, 0b100000},
+    {"di",      0, COP0, {},                {{RS, MFMC0}}, 0b100000},
+    {"di",      1, COP0, {RT},              {{RS, MFMC0}}, 0b100000},
+    {"tlbr",    0, COP0, {},                {{RS, C0}}, 0b000001},
+    {"tlbwi",   0, COP0, {},                {{RS, C0}}, 0b000010},
+    {"tlbp",    0, COP0, {},                {{RS, C0}}, 0b001000},
+
+    // REGIMM encoding
+    {"bltz",    2, REGIMM, {RS, PC16},      {}, -1},
+    {"bgez",    2, REGIMM, {RS, PC16},      {{RT, 0b00001}}, -1},
+
+    // SPECIAL2 encoding
+    {"mul",     3, SPECIAL2, {RD, RS, RT},  {}, 0b10},
+
+    // SPECIAL3 encoding
+    {"ext",     4, SPECIAL3, {RT, RS, SHAMT, RDIMM}, {}, 0},
+    {"ins",     4, SPECIAL3, {RT, RS, SHAMT, RDIMM}, {}, 0b000100},
+    {"seb",     2, SPECIAL3, {RD, RT}, {{SHAMT, 0b10000}}, 0b100000},
+    {"seh",     2, SPECIAL3, {RD, RT}, {{SHAMT, 0b11000}}, 0b100000},
 
 };
 
@@ -250,6 +269,11 @@ uint32_t convert_instruction(Instruction instruction, InstructionTable *instruct
                     v = (imm.intValue % 32 + 32) % 32;
                     final |= (v << 6);
                     break;
+                case RDIMM:
+                    if (imm.type != NUM) goto bad;
+                    v = (imm.intValue % 32 + 32) % 32;
+                    final |= (v << 11);
+                    break;
                 case JADDR:
                     if (imm.type != SYMBOL) goto bad;
 
@@ -388,6 +412,10 @@ uint32_t convert_instruction(Instruction instruction, InstructionTable *instruct
             case SHAMT:
                 v &= 0b11111;
                 final |= (v << 6);
+                break;
+            case RDIMM:
+                v &= 0b11111;
+                final |= (v << 11);
                 break;
             case JADDR:
                 v &= 0x3FFFFFF;

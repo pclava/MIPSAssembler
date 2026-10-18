@@ -26,6 +26,7 @@ enum ArgPosition {
 
     // Immediate
     SHAMT,
+    RDIMM,
     JADDR,
     IMM16,
     PC16,
