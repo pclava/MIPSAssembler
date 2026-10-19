@@ -142,15 +142,7 @@ int parse_instruction(const Assembler *assembler, Line *line, Instruction *instr
                 if (arg.imm.modifier == 255) {
                     return 0;
                 }
-                token = tokenize(NULL, ' ');
-                if (token != NULL) { // Make sure there's no arguments after
-                    raise_error(ARG_INV, token, __FILE__);
-                    return 0;
-                }
-
                 instruction->args[instruction->argc++] = arg;
-
-                break;
             }
         }
 
