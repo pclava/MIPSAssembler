@@ -36,6 +36,7 @@
 .define _SYSEXEC        29
 .define _SYSFORK        30
 .define _SYSWAIT        31
+.define _SYSSLEEP       32
 
 .macro peek %r %tmp
     addiu   %tmp, $v0, 0
@@ -46,6 +47,10 @@
 
 .macro negu %rd, %rs
     subu    %rd, $0, %rs
+.end_macro
+
+.macro not %rd, %rs
+    nor %rd, %rs, $0
 .end_macro
 
 # Push to stack

@@ -93,11 +93,11 @@ int resolve_macros(Line *line, MacroTable *macro_table, Text *text) {
         size_t len = strlen(token);
 
         // skip label definitions and strings
-        if (token[len-1] == ':') goto _add_and_continue;
         if (token[0] == '"') {
             reading_string ^= 1;
             goto _add_and_continue;
         }
+        if (token[len-1] == ':') goto _add_and_continue;
         if (token[len-1] == '"') {
             if (len < 3 || token[len-2] != '\\' || (token[len-2] == '\\' && token[len-3] == '\\')) {
                 reading_string = 0;
