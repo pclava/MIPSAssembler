@@ -18,7 +18,7 @@ as well as converting the intermediate representation Instruction structures to 
 #define C0 0b10000          // RS field for some COP0 instructions
 #define MFMC0 0b01011
 
-#define INSTRUCTION_COUNT 84
+#define INSTRUCTION_COUNT 85
 #define INSTRUCTION_TABLE_SIZE 256 // SHOULD BE DECENTLY LARGER THAN INSTRUCTION COUNT
 
 static const InstrDesc instr_table[INSTRUCTION_COUNT] = {
@@ -55,6 +55,7 @@ static const InstrDesc instr_table[INSTRUCTION_COUNT] = {
     // SPECIAL encoding
     { "sll",        3, SPECIAL, {RD, RT, SHAMT},   {}, 0x00},
     { "nop",        0, SPECIAL, {},                {}, 0},
+    { "rotr",       3, SPECIAL, {RD, RT, SHAMT},   {{RS, 1}}, 0x02},
     { "srl",        3, SPECIAL, {RD, RT, SHAMT},   {}, 0x02},
     { "sra",        3, SPECIAL, {RD, RT, SHAMT},   {}, 0x03},
     { "sllv",       3, SPECIAL, {RD, RT, RS},      {}, 0x04},
