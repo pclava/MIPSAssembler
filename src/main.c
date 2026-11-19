@@ -98,6 +98,7 @@ int main(int argc, char *argv[]) {
             free(in_files);
             return 2;
         }
+        fclose(inp_file);
 
         // text_debug(&text);
 
@@ -113,12 +114,14 @@ int main(int argc, char *argv[]) {
 
         // debug_binary(object_path);
         text_destroy(&text);
+        fseek(pseudo_file, 0, SEEK_SET);
     }
 
     for (int i = 0; i < file_count; i++) {
         free(object_files[i]);
     }
     free(in_files);
+    fclose(pseudo_file);
 
     return 0;
 }
