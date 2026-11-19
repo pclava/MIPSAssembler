@@ -9,9 +9,11 @@
 /*
  Main function for assembler
  Usage:
- MIPSAssembler <files>
+ MIPSAssembler <files> (-p <macros>)
 
  Outputs object files with the same name as their source and with the .o extension
+ The -p flag can be used to provide a file containing macros and pseudoinstructions,
+ such as the default one provided in `pseudo.asm`
  */
 
 int main(int argc, char *argv[]) {
@@ -19,6 +21,9 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "error in %s: invalid arguments\n", __FILE__);
         return 1;
     }
+
+    char *pseudo = NULL;
+    FILE *pseudo_file = NULL;
 
     char **in_files = malloc((argc-1) * sizeof(char *));
     if (in_files == NULL) {
@@ -28,10 +33,29 @@ int main(int argc, char *argv[]) {
     int file_count = 0;
     for (int i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
+            if (argv[i][1] == 'p' && argv[i][2] == '\0') {
+                i++;
+                if (i >= argc) {
+                    fprintf(stderr, "error in %s: no argument provided to -p \"%s\"\n", __FILE__, argv[i]);
+                    free(in_files);
+                    return 1;
+                }
+                pseudo = argv[i];
+                continue;
+            }
+
             fprintf(stderr, "error in %s: skipping unrecognized option \"%s\"\n", __FILE__, argv[i]);
             continue;
         }
         in_files[file_count++] = argv[i];
+    }
+
+    if (pseudo != NULL) {
+        pseudo_file = open_file(pseudo);
+        if (pseudo_file == NULL) {
+            free(in_files);
+            return 1;
+        }
     }
 
     char *object_files[file_count];
@@ -65,7 +89,7 @@ int main(int argc, char *argv[]) {
 
         ERROR_HANDLER.file_name = text.filename;
 
-        if (preprocess(inp_file, &text) == 0) {
+        if (preprocess(inp_file, &text, pseudo_file) == 0) {
             fprintf(stderr, "Error in %s: could not preprocess file \"%s\"\n", __FILE__, inp_path);
             text_destroy(&text);
             for (int k = 0; k <= i-2; k++) {

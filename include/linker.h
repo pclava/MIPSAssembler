@@ -19,7 +19,6 @@ struct SourceFile {
 
 struct linker_settings {
     int clean;
-    int link_start;
     char *dump_symbols;
     char *out_path;
     char *entry;

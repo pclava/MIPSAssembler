@@ -421,13 +421,7 @@ int preprocess_file(FILE *inp, Text *text, MacroTable *macro_table) {
 }
 
 // Preprocesses pseudo.asm, followed by the input file
-int preprocess(FILE *inp, Text *text) {
-    FILE *pseudo = fopen("pseudo.asm", "r");
-    if (pseudo == NULL) {
-        general_error(FILE_IO, __FILE__, "pseudo.asm");
-        return 0;
-    }
-
+int preprocess(FILE *inp, Text *text, FILE *pseudo) {
     MacroTable *macro_table = malloc(sizeof(MacroTable));
     if (macro_table == NULL) {
         raise_error(MEM, NULL, __FILE__);
@@ -435,7 +429,8 @@ int preprocess(FILE *inp, Text *text) {
     }
     try(mt_init(macro_table), 0);
 
-    try(preprocess_file(pseudo, text, macro_table), 0);
+    // TODO: what if pseudo contains actual instructions or data? we should check
+    if (pseudo != NULL) try(preprocess_file(pseudo, text, macro_table), 0);
     try(preprocess_file(inp, text, macro_table), 0)
 
     // text_debug(text);

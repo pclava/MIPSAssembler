@@ -369,22 +369,6 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
         fclose(f);
     }
 
-    // If entry is __start, link __start.o at the end
-    SourceFile start;
-    start.name = "__start.o";
-    if (options.link_start) {
-        const uint32_t text_offset = final_header.text;
-        const uint32_t data_offset = final_header.data;
-        const uint32_t bss_offset = final_header.bss;
-        const uint32_t ktext_offset = final_header.ktext;
-        const uint32_t kdata_offset = final_header.kdata;
-        FILE *f = open_object_file("__start.o", &final_header, &start.file);
-        if (f == NULL) goto _link_failed;
-        file_init(&start, text_offset, data_offset, bss_offset, ktext_offset, kdata_offset);
-        load_symbols(&start, &global_symbols);
-        fclose(f);
-    }
-
     // Determine entry
     if (options.entry == NULL) {
         final_header.entry = TEXT_START;
@@ -409,9 +393,6 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
     for (int file_index = 0; file_index < file_count; file_index++) {
         if (file_relocation(&source_files[file_index], &global_symbols) == 0) goto _link_failed;
     }
-    if (options.link_start) {
-        file_relocation(&start, &global_symbols);
-    }
 
     /*
     Build file by combining text and data segments
@@ -429,17 +410,11 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
         SourceFile file = source_files[file_index];
         fwrite(file.file.text, sizeof(uint32_t), file.file.hdr.text/4, out);
     }
-    if (options.link_start) {
-        fwrite(start.file.text, sizeof(uint32_t), start.file.hdr.text/4, out);
-    }
 
     // Write data segment(s)
     for (int file_index = 0; file_index < file_count; file_index++) {
         SourceFile file = source_files[file_index];
         fwrite(file.file.data, sizeof(uint8_t), file.file.hdr.data, out);
-    }
-    if (options.link_start) {
-        fwrite(start.file.data, sizeof(uint8_t), start.file.hdr.data, out);
     }
 
     // Write ktext segment(s)
@@ -447,24 +422,17 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
         SourceFile file = source_files[file_index];
         fwrite(file.file.ktext, sizeof(uint32_t), file.file.hdr.ktext/4, out);
     }
-    if (options.link_start) {
-        fwrite(start.file.ktext, sizeof(uint32_t), start.file.hdr.ktext/4, out);
-    }
 
     // Write kdata segment(s)
     for (int file_index = 0; file_index < file_count; file_index++) {
         SourceFile file = source_files[file_index];
         fwrite(file.file.kdata, sizeof(uint8_t), file.file.hdr.kdata, out);
     }
-    if (options.link_start) {
-        fwrite(start.file.kdata, sizeof(uint8_t), start.file.hdr.kdata, out);
-    }
     fclose(out);
 
     for (int file_index = 0; file_index < file_count; file_index++) {
         file_destroy(&source_files[file_index]);
     }
-    if (options.link_start) file_destroy(&start);
 
     if (options.dump_symbols != NULL) {
         st_dump(&global_symbols, options.dump_symbols);
@@ -492,7 +460,7 @@ int link(char *object_files[], int file_count, const struct linker_settings opti
  -d <path>      : dumps the global symbol table to the given path for debugging purposes
  -o <path>      : writes the executable to the given path. if not provided, writes to "a.out"
  -s <symbol>    : begin program execution at the given symbol. if not provided, begins at first instruction
- -ls            : links __start.o and sets program entry to __start. overrides -s if put after
+ -ls            : sets program entry to __start
  */
 
 int main(int argc, char *argv[]) {
@@ -508,7 +476,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     char default_out[] = "a.out";
-    struct linker_settings options = {0, 0, NULL, default_out, NULL};
+    struct linker_settings options = {0, NULL, default_out, NULL};
     char start_sym[] = "__start";
 
     // Get input files
@@ -533,7 +501,6 @@ int main(int argc, char *argv[]) {
                     break;
                 case 'l':
                     if (argv[i][2] == 's') {
-                        options.link_start = 1;
                         options.entry = start_sym;
                         break;
                     }
