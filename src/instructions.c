@@ -333,7 +333,7 @@ uint32_t convert_instruction(Instruction instruction, InstructionTable *instruct
                                 v = imm.intValue;
                                 break;
                             case 1:
-                                v = imm.intValue >> 16;
+                                v = (imm.intValue + 0x8000) >> 16;
                                 break;
                             case 2:
                                 v = imm.intValue & 0xFFFF;

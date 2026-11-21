@@ -107,7 +107,7 @@ int relocate(const SourceFile *source, const struct mof_relocation relocation, u
                 return 0;
             }
             text[instr_index] &= 0xffff0000;
-            text[instr_index] |= final_address >> 16;
+            text[instr_index] |= (final_address + 0x8000) >> 16;
             break;
         case R_LO16:
             if (relocation.segment != TEXT && relocation.segment != KTEXT) {
