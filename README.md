@@ -31,6 +31,7 @@ The available options are:
 - `-ls` sets program entry to `__start`. overrides the `-s` flag if put after
 
 The file `__start.asm` provides a basic routine to be call the main() function in your assembly code. To link with it, assemble it and link the object `__start.o` with the rest of your objects, and use the `-ls` flag to set the correct entry symbol.
+Link __start last if you have your own kernel code, or don't link it at all.
 
 ### Example
 To create an executable from two files, `foo.asm` and `bar.asm`, first assemble:
@@ -43,7 +44,7 @@ This will generate two object files, `foo.o` and `bar.o`. To link, the minimal c
 
 This outputs an executable `a.out`. However, one could also provide any of the above flags. For example,
 
-`$ MIPSLinker -o baz.out -ls -d symbols.txt -c __start.o foo.o bar.o`
+`$ MIPSLinker -o baz.out -ls -d symbols.txt -c foo.o bar.o __start.o`
 
 This links `__start.o` and the given object files, outputs an executable `baz.out` with program entry at `__start`, dumps the global symbol table at in `symbols.txt`, and deletes the two object files after completion. 
 
