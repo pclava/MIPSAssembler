@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
 
         // debug_binary(object_path);
         text_destroy(&text);
-        fseek(pseudo_file, 0, SEEK_SET);
+        if (pseudo_file) fseek(pseudo_file, 0, SEEK_SET);
     }
 
     for (int i = 0; i < file_count; i++) {
