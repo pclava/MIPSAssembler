@@ -294,14 +294,7 @@ int sanitize(Line *line) {
             continue;
         }
 
-        if (i != 0 && (oldstr[i] == '(' || oldstr[i] == ')') && !reading_string) {
-            if (prev_wsp && new->str[new->len-1] != '(' && new->str[new->len-1] != ')' ) { // remove previous whitespace
-                new->len--;
-                new->str[new->len] = '\0';
-            }
-            prev_wsp = 1;   // to omit whitespace after parenthesis
-        }
-        else prev_wsp = 0;
+        prev_wsp = 0;
         string_append(new, oldstr[i]);
     }
 

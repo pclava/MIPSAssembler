@@ -389,6 +389,10 @@ int read_data(const Assembler *assembler, const Line *line) {
                     data.size = string_length+1;
                 }
 
+                // Strip leading parens
+                if (*argument == '(') memmove(argument, argument + 1, strlen(argument));
+                size_t n = strlen(argument);
+                if (argument[n - 1] == ')') argument[n - 1] = '\0';
                 if (process_data(&data, CURRENT_DIRECTIVE, argument, assembler->symbol_table) == 0) {
                     free(argument);
                     return 0;
